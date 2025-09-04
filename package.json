@@ -1,15 +1,11 @@
 {
-  "name": "poc",
-  "version": "1.0.0",
-  "type": "module",
   "private": true,
+  "workspaces": [
+    "packages/example-app"
+  ],
   "scripts": {
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
-    "mutate": "stryker run"
-  },
-  "devDependencies": {
-    "@stryker-mutator/core": "^8.0.0",
-    "@stryker-mutator/jest-runner": "^8.7.1",
-    "jest": "^29.7.0"
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "mutate": "npm run mutate --workspaces --if-present"
   }
 }
