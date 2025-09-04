@@ -1,7 +1,8 @@
 {
   "private": true,
   "workspaces": [
-    "packages/example-app"
+    "packages/example-app",
+    "packages/mcp-server"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
