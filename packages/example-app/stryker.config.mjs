@@ -1,5 +1,5 @@
 /** @type {import('@stryker-mutator/api/core').StrykerOptions} */
-module.exports = {
+export default {
   packageManager: 'npm',
   reporters: ['clear-text', 'progress', 'html'],
   testRunner: 'jest',
