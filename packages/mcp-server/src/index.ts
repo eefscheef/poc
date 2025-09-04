@@ -1,13 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
+import { registerStrykerRun } from "./tools/strykerRun.js";
+import { registerStrykerReadJson } from "./tools/strykerReadJson.js";
 
-// Create server instance
-const server = new McpServer({
-  name: "stryker",
-  version: "1.0.0",
-  capabilities: {
-    resources: {},
-    tools: {},
-  },
-});
+const server = new McpServer({ name: "stryker-mcp", version: "0.1.0" });
+
+// Register tools
+registerStrykerRun(server);
+registerStrykerReadJson(server);
+
+await server.connect(new StdioServerTransport());

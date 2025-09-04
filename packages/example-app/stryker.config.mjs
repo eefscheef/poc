@@ -1,4 +1,5 @@
-/** @type {import('@stryker-mutator/api/core').StrykerOptions} */
+// @ts-check
+/** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   packageManager: 'npm',
   reporters: ['clear-text', 'progress', 'html'],

@@ -1,0 +1,115 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(exec);
+
+
+// Create server instance
+const server = new McpServer({
+  name: "stryker",
+  version: "1.0.0",
+});
+
+
+// Add an addition tool
+server.registerTool("add",
+  {
+    title: "Addition Tool",
+    description: "Add two numbers",
+    inputSchema: { a: z.number(), b: z.number() }
+  },
+  async ({ a, b }) => ({
+    content: [{ type: "text", text: String(a + b) }]
+  })
+);
+
+
+
+// Register the strykerRun tool
+server.registerTool(
+  "strykerRun",
+  {
+    title: "Stryker Run (direct)",
+    description: "Runs Stryker mutation testing via npx (optionally targeting specific files)",
+    inputSchema: {
+      cwd: z.string().describe("Project directory containing tests"),
+      files: z.array(z.string()).optional().describe("File glob patterns to mutate"),
+      timeout: z.number().optional().describe("Timeout in seconds")
+    }
+  },
+  async ({ cwd, files, timeout }) => {
+    // 1. Build the npx stryker command with appropriate args
+    const mutateArg = files && files.length ? `--mutate ${files.join(",")}` : "";
+    const cmd = `npx -y stryker run ${mutateArg} --reporters json,clear-text --logLevel info`;
+    const timeoutMs = (timeout ?? 120) * 1000;  // default 120s if not specified
+
+    try {
+      const { stdout, stderr } = await execAsync(cmd, { cwd, timeout: timeoutMs });
+      const output = stdout + stderr;
+      // 2. Parse summary metrics from output (similar to above)
+      let mutationScore = null, killed = null, survived = null, timeoutCount = null, totalMutants = null;
+      let jsonReportPath = null;
+      const summaryMatch = output.match(/All files\s*\|\s*([\d.]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)/);
+      if (summaryMatch) {
+        mutationScore = parseFloat(summaryMatch[1]);
+        killed = parseInt(summaryMatch[2], 10);
+        timeoutCount = parseInt(summaryMatch[3], 10);
+        survived = parseInt(summaryMatch[4], 10);
+        totalMutants = killed + timeoutCount + survived + parseInt(summaryMatch[5], 10) + parseInt(summaryMatch[6], 10);
+      }
+      const scoreMatch = output.match(/final mutation score is\s+([\d.]+)\s?%/i);
+      if (scoreMatch && mutationScore === null) {
+        mutationScore = parseFloat(scoreMatch[1]);
+      }
+      const reportIdx = output.lastIndexOf("Your report can be found at:");
+      if (reportIdx !== -1) {
+        const pathLine = output.substring(reportIdx + 27).trim().split(/\r?\n/)[0];
+        jsonReportPath = pathLine.startsWith("file:///") ? new URL(pathLine).pathname : pathLine;
+      }
+      const result = {
+        output,
+        mutationScore,
+        killedMutants: killed,
+        survivedMutants: survived,
+        timeoutMutants: timeoutCount,
+        totalMutants,
+        jsonReportPath
+      };
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err: any) {
+      if (err.killed) {
+        return {
+          content: [{ type: "text", text: "Error: Stryker run timed out" }],
+          isError: true
+        };
+      }
+      let errorMsg = err.stderr || err.stdout || err.message;
+      if (errorMsg.includes("stryker: not found") || errorMsg.includes("Unknown command")) {
+        errorMsg = "Stryker CLI not installed or not available";
+      }
+      if (errorMsg.length > 300) {
+        errorMsg = errorMsg.slice(300);
+      }
+      return {
+        content: [{ type: "text", text: `Error: ${errorMsg.trim()}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Stryker MCP Server running on stdio");
+}
+
+main().catch((error) => {
+  console.error("Fatal error in main():", error);
+  process.exit(1);
+});
