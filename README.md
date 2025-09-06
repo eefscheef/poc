@@ -6,19 +6,20 @@ It is accompanied by a tiny JavaScript package in packages/example-app, that con
 ```
 What’s inside
 .
-├─ server/                       # MCP server (TypeScript)
-│  ├─ src/
-│  │  ├─ index.ts                # entrypoint
-│  │  ├─ tools/
-│  │  │  ├─ strykerMutate.ts     # runs Stryker mutation testing
-│  │  │  ├─ strykerRun.ts        # runs a Stryker dry-run / test-only check
-│  │  │  └─ strykerReadJson.ts   # reads and summarizes Stryker JSON report
-│  └─ package.json
+
 └─ packages/
-   └─ example-app/               # tiny JS lib with tests and Stryker config
-      ├─ src/                    # fizzbuzz + isPrime
-      ├─ test/                   # unit tests
-      ├─ stryker.conf.(js|json)  # stryker config
+   ├─ mcp-server/                   # MCP server (TypeScript)
+   │  ├─ src/
+   │  │  ├─ index.ts                # entrypoint
+   │  │  ├─ tools/
+   │  │  │  ├─ strykerMutate.ts     # runs Stryker mutation testing
+   │  │  │  ├─ strykerRun.ts        # runs a Stryker dry-run / test-only check
+   │  │  │  └─ strykerReadJson.ts   # reads and summarizes Stryker JSON report
+   │  └─ package.json
+   └─ example-app/                  # tiny JS lib with tests and Stryker config
+      ├─ src/                       # fizzbuzz + isPrime
+      ├─ test/                      # unit tests
+      ├─ stryker.conf.(js|json)     # stryker config
       └─ package.json
 ```
 
