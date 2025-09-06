@@ -3,6 +3,7 @@
 This repository contains a small MCP (Model Context Protocol) server in packages/mcp-server that exposes three Stryker tools that enable an agent to access the mutation testing tool Stryker. 
 It is accompanied by a tiny JavaScript package in packages/example-app, that contains tests that won't kill all mutants. This can be used to to quickly verify the server works end-to-end.
 
+```
 What’s inside
 .
 ├─ server/                       # MCP server (TypeScript)
@@ -19,12 +20,11 @@ What’s inside
       ├─ test/                   # unit tests
       ├─ stryker.conf.(js|json)  # stryker config
       └─ package.json
-
+```
 
 The fizzbuzz package has Stryker installed and configured so you can mutate it immediately.
-
-The three tools
-1) strykerMutate
+## Tools
+### 1) strykerMutate
 
 Runs the mutate script if it is configured in your project's package.json.
 
@@ -38,7 +38,7 @@ timeout (number, optional) – Timeout in seconds (default 900)
 
 Behavior: Executes npx stryker run (or your local script) in cwd. Produces the standard Stryker report under reports/mutation/.
 
-2) strykerRun
+### 2) strykerRun
 
 Runs Stryker mutation testing via npx and ensures a JSON report is generated.
 
@@ -54,7 +54,7 @@ timeout (number, optional) – Timeout in seconds (default 120)
 
 Behavior: Invokes Stryker.
 
-3) strykerReadJson
+### 3) strykerReadJson
 
 Reads the generated JSON report and returns both the raw JSON and a JSON-safe metrics summary computed with Stryker’s official schema & metrics helper.
 
@@ -74,7 +74,7 @@ Computes metrics via mutation-testing-metrics
 
 Returns a compact summary (no circular references)
 
-Prerequisites
+## Prerequisites
 
 Node.js ≥ 18
 
