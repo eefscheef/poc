@@ -8,7 +8,7 @@ import { schema } from "mutation-testing-report-schema";
 import { Ajv } from "ajv";
 const ajv = new Ajv({ allErrors: true, strict: false });
 const validateReport = ajv.compile(schema);
-// Build a Summary from the official metrics helper
+// Build a Summary from the metrics helper in the Stryker API
 function summarizeWithOfficialMetrics(report) {
     const result = calculateMutationTestMetrics(report);
     const m = result.systemUnderTestMetrics.metrics; // top-level aggregated metrics
@@ -28,13 +28,10 @@ function isMutationTestResult(data) {
 export function registerStrykerReadJson(server) {
     server.registerTool("strykerReadJson", {
         title: "Read Stryker JSON report",
-        description: "Reads the Stryker JSON report file and returns the raw JSON plus a computed summary (validated against the official schema).",
+        description: "Reads the Stryker JSON report and returns raw JSON plus official computed metrics.",
         inputSchema: {
             cwd: z.string().describe("Project directory"),
-            path: z
-                .string()
-                .optional()
-                .describe("Path to report JSON (defaults to reports/mutation/mutation.json)"),
+            path: z.string().optional().describe("Path to report JSON (defaults to reports/mutation/mutation.json)"),
         },
     }, async ({ cwd, path }) => {
         try {
@@ -42,31 +39,20 @@ export function registerStrykerReadJson(server) {
             const reportPath = resolve(root, path ?? join("reports", "mutation", "mutation.json"));
             await access(reportPath);
             const raw = await readFile(reportPath, "utf8");
-            // Parse once
             const parsed = JSON.parse(raw);
-            // Validate with Ajv
             if (!isMutationTestResult(parsed)) {
-                const errors = validateReport.errors?.map((e) => `${e.instancePath} ${e.message}`).join("\n") ??
-                    "Unknown schema validation error";
-                return {
-                    content: [{ type: "text", text: `Error: The report does not match the schema.\n${errors.slice(0, 5000)}` }],
-                    isError: true,
-                };
+                const errors = (validateReport.errors ?? [])
+                    .map((e) => `${e.instancePath} ${e.message}`)
+                    .join("\n") || "Unknown schema validation error";
+                return { content: [{ type: "text", text: `Error: The report does not match the schema.\n${errors.slice(0, 5000)}` }], isError: true };
             }
-            // Now we know it's a valid MutationTestResult
             const report = parsed;
-            // Compute metrics via the official helper
-            const summary = summarizeWithOfficialMetrics(report);
+            // Small metrics overview from Stryker API
+            const metrics = calculateMutationTestMetrics(report).systemUnderTestMetrics.metrics;
             return {
                 content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ reportPath, summary }, null, 2),
-                    },
-                    {
-                        type: "text",
-                        text: raw, // original JSON
-                    },
+                    { type: "text", text: JSON.stringify({ reportPath, metrics }, null, 2) },
+                    { type: "text", text: raw },
                 ],
                 isError: false,
             };
@@ -75,15 +61,7 @@ export function registerStrykerReadJson(server) {
             let msg = e?.message || String(e);
             if (msg.length > 500)
                 msg = msg.slice(-500);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Error: ${msg}`,
-                    },
-                ],
-                isError: true,
-            };
+            return { content: [{ type: "text", text: `Error: ${msg}` }], isError: true };
         }
     });
 }
