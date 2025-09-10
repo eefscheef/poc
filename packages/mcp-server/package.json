@@ -5,8 +5,9 @@
   "private": true,
   "description": "PoC implementation of a Stryker MCP server",
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps build/index.js",
     "inspect": "npm run build && npx @modelcontextprotocol/inspector node build/index.js"
   },
   "dependencies": {
