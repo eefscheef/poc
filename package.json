@@ -9,5 +9,12 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "mutate": "npm run mutate --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "9.4.0"
+  },
+  "overrides": {
+    "@stryker-mutator/core": "9.4.0",
+    "@stryker-mutator/*": "9.4.0"
   }
 }
