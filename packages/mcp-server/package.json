@@ -11,7 +11,7 @@
     "inspect": "npm run build && npx @modelcontextprotocol/inspector node build/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@modelcontextprotocol/sdk": "^1.24.1",
     "mutation-testing-report-schema": "^3.3.0",
     "zod": "^3.25.76"
   },
