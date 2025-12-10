@@ -1,6 +1,6 @@
 import { Subject } from 'rxjs';
 import { JSONRPCResponse, JSONRPCRequest } from 'json-rpc-2.0';
-import { Logger } from '../logging/Logger';
+import { Logger } from '../logging/Logger.ts';
 
 /**
  * BaseTransport manages the low‑level handling of JSON‑RPC messages.  It

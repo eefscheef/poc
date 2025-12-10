@@ -11,7 +11,8 @@ export class Logger {
         this.prefix = prefix;
     }
     info(message: string) {
-        console.log(`[INFO] [${this.prefix}] ${message}`);
+        // Write to stderr instead of stdout to avoid corrupting Mutation Server Protocol
+        console.error(`[INFO] [${this.prefix}] ${message}`);
     }
     error(message: string) {
         console.error(`[ERROR] [${this.prefix}] ${message}`);
