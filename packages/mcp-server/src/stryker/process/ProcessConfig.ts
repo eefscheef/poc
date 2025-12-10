@@ -11,4 +11,6 @@ export interface ProcessConfig {
     args?: string[];
     /** Working directory to use when spawning Stryker. */
     cwd?: string;
+    /** Optional path to the Stryker config file to use during initialization. */
+    configFilePath?: string;
 }
