@@ -1,45 +1,76 @@
-import { z } from "zod";
-import { exec as execCb } from "node:child_process";
-import { promisify } from "node:util";
-import { join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {type StrykerRunInput, ZStrykerRunInput, ZStrykerRunInputShape} from "../schemas/strykerRunInput.ts";
-import {buildStrykerArgs} from "../utils/buildStrykerArgs.ts";
-import {createStrykerServer} from "../stryker/startStrykerServer.ts";
+import { StrykerServer } from "../stryker/server/StrykerServer.ts";
+import { DiscoverParams, DiscoverResult } from "mutation-server-protocol";
 
-const execAsync = promisify(execCb);
 
-export function registerStrykerServe(server: McpServer) {
-    server.registerTool(
-        "strykerServe",
+export function registerStrykerDiscover(mcpServer: McpServer, strykerServer: StrykerServer) {
+    mcpServer.registerTool(
+        "strykerDiscover",
         {
-            title: "Stryker serve (over stdio)",
+            title: "Stryker Discover",
             description:
-                "Starts the Stryker server on the stdio channel.",
-            inputSchema: {},
+                "Discovers mutants in the project. Optionally specify files or directories to discover mutants in. Paths can be absolute paths, relative paths, or glob patterns.",
+            inputSchema: DiscoverParams.shape,
         },
         async (rawInput) => {
-            // (ensure that StrykerJS is installed locally so the binary exists)
-            const server = createStrykerServer({ path: 'node_modules/.bin/stryker' });
-            server.init().then(async () => {
-                const discovery = await server.discover();
-                console.log(discovery);
-                // Start mutation test
-                server.mutationTest({}).subscribe({ next: console.log, complete: () => server.dispose() });
-            });
-
-            } catch (err: any) {
-                if (err?.killed) {
-                    return { content: [{ type: "text", text: "Error: Stryker run timed out" }], isError: true };
+            try {
+                console.error(`[strykerDiscover] Received request with input: ${JSON.stringify(rawInput)}`);
+                
+                const params = rawInput as { files?: Array<{ path: string; range?: any }> };
+                
+                if (params.files) {
+                    console.error(`[strykerDiscover] Processing ${params.files.length} file path(s)/pattern(s)`);
+                    params.files.forEach(file => {
+                        console.error(`[strykerDiscover] Path/pattern: "${file.path}"`);
+                    });
+                } else {
+                    console.error(`[strykerDiscover] No files specified, discovering all mutants in project`);
                 }
-                let errorMsg = err?.stderr || err?.stdout || err?.message || String(err);
-                if (errorMsg.includes("stryker: not found") || errorMsg.includes("Unknown command")) {
-                    errorMsg =
-                        "Stryker CLI not found. Add it as a devDependency (`npm i -D @stryker-mutator/core`) " +
-                        "or allow temporary install via `npm exec -y` (already enabled).";
+                
+                console.error(`[strykerDiscover] Calling strykerServer.discover with params: ${JSON.stringify(params)}`);
+                const discovery: DiscoverResult = await strykerServer.discover(params);
+                console.error(`[strykerDiscover] Discovery completed successfully`);
+                
+                // Format the discovery result as readable text
+                const fileCount = Object.keys(discovery.files).length;
+                let totalMutants = 0;
+                const fileDetails: string[] = [];
+                
+                for (const [filePath, fileData] of Object.entries(discovery.files)) {
+                    const mutantCount = fileData.mutants.length;
+                    totalMutants += mutantCount;
+                    fileDetails.push(`  ${filePath}: ${mutantCount} mutant(s)`);
                 }
-                if (errorMsg.length > 1200) errorMsg = errorMsg.slice(-1200);
-                return { content: [{ type: "text", text: `Error: ${errorMsg.trim()}` }], isError: true };
+                
+                console.error(`[strykerDiscover] Found ${totalMutants} mutant(s) in ${fileCount} file(s)`);
+                
+                const summary = `Discovered ${totalMutants} mutant(s) in ${fileCount} file(s)\n\n${fileDetails.join('\n')}`;
+                
+                return { 
+                    content: [{ 
+                        type: "text", 
+                        text: summary 
+                    }] 
+                };
+            } catch (err) {
+                console.error(`[strykerDiscover] Error occurred:`, err);
+                
+                const errorMsg = err instanceof Error ? err.message : String(err);
+                const errorStack = err instanceof Error ? err.stack : undefined;
+                
+                if (errorStack) {
+                    console.error(`[strykerDiscover] Stack trace:`, errorStack);
+                }
+                
+                const truncatedMsg = errorMsg.length > 1200 ? errorMsg.slice(-1200) : errorMsg;
+                
+                return { 
+                    content: [{ 
+                        type: "text", 
+                        text: `Error discovering mutants: ${truncatedMsg.trim()}` 
+                    }], 
+                    isError: true 
+                };
             }
         }
     );
