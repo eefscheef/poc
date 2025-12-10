@@ -2,12 +2,8 @@ import { z } from "zod";
 import { readFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-
-// --- NEW: official schema types & metrics
 import type { MutationTestResult,  } from "mutation-testing-report-schema";
 import { calculateMutationTestMetrics, type Metrics } from "mutation-testing-metrics";
-
-// Runtime validation using the published schema
 import { schema } from "mutation-testing-report-schema";
 import { Ajv, type ValidateFunction } from "ajv";
 
