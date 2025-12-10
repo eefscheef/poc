@@ -58,7 +58,8 @@ export const ZStrykerRunInputShape: z.ZodRawShape = {
 
   // Config hand-off
   configFile: z.string().optional().describe("Path to an existing Stryker config file (passed as the last arg)"),
-  configOverrides: z.record(z.any()).optional().describe("Partial Stryker config to write to a temp JSON file and use as the config for this run"),
+  // TODO: Fix the configOverrides typing for Zod 4.0, if we start using this schema again for an MCP Stryker config tool
+  //   configOverrides: z.record(z.any()).optional().describe("Partial Stryker config to write to a temp JSON file and use as the config for this run"),
 
   // Tool process timeout (not Stryker's internal timeouts)
   execTimeoutSeconds: z.number().int().positive().optional().describe("Default 300s"),
