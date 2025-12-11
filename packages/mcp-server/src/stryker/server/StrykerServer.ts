@@ -22,6 +22,7 @@ export class StrykerServer {
     private readonly logger: Logger;
     private readonly client: JSONRPCClient;
     private readonly config: ProcessConfig;
+    private initialized: boolean = false;
     constructor(process: Process, transport: StdioTransport, logger: Logger, config: ProcessConfig) {
         this.process = process;
         this.transport = transport;
@@ -47,7 +48,21 @@ export class StrykerServer {
         }
         const versionInfo = (await this.configure(configParams)).version;
         this.logger.info(`Connected to Stryker server version ${versionInfo}`);
+        this.initialized = true;
     }
+
+    isInitialized(): boolean {
+        return this.initialized;
+    }
+    
+    /** Update the process configuration. Must be called before init(). */
+    updateConfig(updates: Partial<ProcessConfig>): void {
+        if (this.initialized) {
+            throw new Error('Cannot update config after server is initialized');
+        }
+        Object.assign(this.config, updates);
+    }
+    
     /** Request the server to configure itself.  The parameter object follows
      * the mutation‑server‑protocol; here we support an optional `configFilePath`.
      */
@@ -77,5 +92,6 @@ export class StrykerServer {
     async dispose(): Promise<void> {
         await this.transport.dispose();
         this.process.dispose();
+        this.initialized = false;
     }
 }
