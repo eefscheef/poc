@@ -1,6 +1,6 @@
-// jest.config.mjs
+/** @type {import('jest').Config} */
 export default {
-  testEnvironment: '@stryker-mutator/jest-runner/jest-env/node',
-  roots: ['<rootDir>/test'],
-  moduleFileExtensions: ['js'],
+  testEnvironment: 'node',
+  testMatch: ['**/test/**/*.test.[jt]s'],
+  transform: {}, // no Babel/ts-jest needed for plain JS
 };
