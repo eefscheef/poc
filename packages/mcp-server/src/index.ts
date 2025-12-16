@@ -5,6 +5,8 @@ import { registerStrykerDiscover } from "./tools/strykerDiscover.ts";
 import { registerStrykerStart } from "./tools/strykerStart.ts";
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { registerStrykerConfigure } from "./tools/strykerConfigure.ts";
+import { registerStrykerMutationTest } from "./tools/strykerMutationTest.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,6 +25,8 @@ const strykerServer = createStrykerServer({
 
 // Register tools
 registerStrykerStart(mcpServer, strykerServer);
+registerStrykerConfigure(mcpServer, strykerServer);
 registerStrykerDiscover(mcpServer, strykerServer);
+registerStrykerMutationTest(mcpServer, strykerServer);
 
 await mcpServer.connect(new StdioServerTransport());
