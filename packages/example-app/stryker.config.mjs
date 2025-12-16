@@ -1,21 +1,20 @@
 // @ts-check
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
-  packageManager: 'npm',
-  reporters: ['clear-text', 'progress', 'html'],
-  testRunner: 'jest',
-  coverageAnalysis: 'perTest',
-  mutate: ['src/**/*.js'],
-  testRunnerNodeArgs: ['--experimental-vm-modules'],
+  packageManager: "npm",
+  testRunner: "jest",
+  mutate: ["src/**/*.js"],               // mutate your source
+  reporters: ["json"],
+  coverageAnalysis: "perTest",
+  jsonReporter: { fileName: "stryker-report.json" },
   jest: {
-    // Use your jest.config.mjs
-    configFile: 'jest.config.mjs',
-    // Set to 'custom' to respect your config file; works well for small samples
-    projectType: 'custom'
+    configFile: "jest.config.mjs",        // your Jest config
+    projectType: "custom",                // respects your Jest config
+    enableFindRelatedTests: false,        // run all tests for each mutant
+    config: {
+      testEnvironment: 'node',
+    },
   },
-  thresholds: {
-    high: 80,
-    low: 60,
-    break: 0
-  }
+  testRunnerNodeArgs: ["--experimental-vm-modules"],
+  tempDirName: "stryker-tmp",             // avoid hidden temp dirs
 };
