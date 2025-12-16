@@ -3,7 +3,6 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { StrykerServer } from "../stryker/server/StrykerServer.ts";
 import { DiscoverParams, DiscoverResult } from "mutation-server-protocol";
 
-
 export function registerStrykerDiscover(mcpServer: McpServer, strykerServer: StrykerServer) {
     mcpServer.registerTool(
         "strykerDiscover",
@@ -11,7 +10,12 @@ export function registerStrykerDiscover(mcpServer: McpServer, strykerServer: Str
             title: "Stryker Discover",
             description:
                 "Discovers mutants in the project. Optionally specify files or directories to discover mutants in. Paths can be relative paths, or glob patterns.",
-            inputSchema: DiscoverParams.shape,
+            inputSchema: DiscoverParams.meta({
+                examples: [
+                    { files: [{ path: "src/**/*.js" }] }, // [{"path":"src/**/*.js"}] when copy-pasting into inspector
+                    { files: [{ path: "packages/my-app/src/**/*.ts" }, { path: "src/utils/*.js" }] }
+                ]
+            }).shape,
             outputSchema: DiscoverResult.shape,
         },
         (rawInput) => strykerDiscoverHandler(rawInput, strykerServer)
