@@ -117,18 +117,10 @@ async function strykerMutationTestHandler(
     // await writeFile(reportPath, JSON.stringify(result, null, 2), "utf-8");
 
     return {
-      content: [
-        {
-          type: "resource",
-          resource: {
-            uri: `file://${reportPath}`,
-            text: JSON.stringify(result, null, 2),
-            mimeType: "application/json",
-          },
-        },
-      ],
-      structuredContent: result,
+      content: [],
+      structuredContent: result
     };
+
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return {
