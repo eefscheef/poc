@@ -1,7 +1,8 @@
 node_modules
-.vscode
-.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/mcp.json
 reports/*
 /reports
 build/
-idea
+.idea
