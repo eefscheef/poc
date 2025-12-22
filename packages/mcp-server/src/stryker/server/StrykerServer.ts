@@ -30,6 +30,7 @@ export class StrykerServer {
         this.config = config;
         // Set up the JSON‑RPC client: it uses the transport's send method
         this.client = new JSONRPCClient((req) => {
+            this.logger.info(`[JSON-RPC] Sending request: ${req.method} (id: ${req.id})`);
             this.transport.send(JSON.stringify(req));
         });
     }
@@ -37,17 +38,34 @@ export class StrykerServer {
      * configure call.  Throw if the protocol version mismatches.
      */
     async init(): Promise<void> {
+        const startTime = Date.now();
+        this.logger.info('[StrykerServer] Starting initialization...');
+        
         await this.process.init();
+        this.logger.info(`[StrykerServer] Process initialized (${Date.now() - startTime}ms)`);
+        
         await this.transport.init();
+        this.logger.info(`[StrykerServer] Transport initialized (${Date.now() - startTime}ms)`);
+        
         // Forward responses from transport to the JSON‑RPC client
-        this.transport.messages.subscribe((msg) => this.client.receive(msg));
+        this.transport.messages.subscribe((msg) => {
+            this.logger.info(`[JSON-RPC] Received response: ${JSON.stringify(msg).substring(0, 200)}`);
+            this.client.receive(msg);
+        });
+        
         // Configure with the provided config file (if any)
         const configParams: ConfigureParams = {};
         if (this.config.configFilePath) {
             configParams.configFilePath = this.config.configFilePath;
         }
+        
+        this.logger.info('[StrykerServer] Sending configure request...');
+        const configStartTime = Date.now();
         const versionInfo = (await this.configure(configParams)).version;
+        this.logger.info(`[StrykerServer] Configure completed in ${Date.now() - configStartTime}ms - version ${versionInfo}`);
         this.logger.info(`Connected to Stryker server version ${versionInfo}`);
+        
+        this.logger.info(`[StrykerServer] Initialization complete (total: ${Date.now() - startTime}ms)`);
         this.initialized = true;
     }
 
@@ -73,7 +91,16 @@ export class StrykerServer {
      * DiscoverResult.
      */
     async discover(params: DiscoverParams): Promise<DiscoverResult> {
-        return this.client.request('discover', params);
+        const startTime = Date.now();
+        this.logger.info(`[StrykerServer] Starting discover request...`);
+        try {
+            const result = await this.client.request('discover', params);
+            this.logger.info(`[StrykerServer] Discover completed in ${Date.now() - startTime}ms`);
+            return result;
+        } catch (error) {
+            this.logger.error(`[StrykerServer] Discover failed after ${Date.now() - startTime}ms: ${error}`);
+            throw error;
+        }
     }
     /** Run mutation tests.  Returns an observable that emits progress
      * notifications followed by the final result.  This mirrors the
