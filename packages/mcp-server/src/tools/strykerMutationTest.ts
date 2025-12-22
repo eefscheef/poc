@@ -5,6 +5,10 @@ import {
   MutationTestParams,
   MutationTestResult,
 } from "mutation-server-protocol";
+import {
+  calculateMutationTestMetrics
+} from 'mutation-testing-metrics';
+import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
 import { lastValueFrom } from "rxjs";
 
 export function registerStrykerMutationTest(
@@ -52,32 +56,35 @@ async function strykerMutationTestHandler(
     const observable = strykerServer.mutationTest(args);
 
     let progressEventCount = 0;
-    const aggregatedFiles: MutationTestResult['files'] = {};
+    
+    // Build MutationTestResult (MSP format) incrementally as observables come in
+    const mspResult: MutationTestResult = {
+      files: {},
+    };
     
     // Subscribe for progress updates
     const progressSub = observable.subscribe({
       next(progressNotification: MutationTestResult) {
         progressEventCount++;
-        // console.error(`[strykerMutationTest] Event data:`, JSON.stringify(progressNotification));
         
-        // Aggregate file results from progress notifications
+        // Aggregate file results in MSP format
         if (progressNotification.files) {
           for (const [filePath, fileResult] of Object.entries(progressNotification.files)) {
-            if (!aggregatedFiles[filePath]) {
-              aggregatedFiles[filePath] = { mutants: [] };
+            if (!mspResult.files[filePath]) {
+              mspResult.files[filePath] = { mutants: [] };
             }
+            
             // Merge mutants arrays, avoiding duplicates by ID
-            const existingIds = new Set(aggregatedFiles[filePath].mutants.map(m => m.id));
+            const existingIds = new Set(mspResult.files[filePath].mutants.map(m => m.id));
             for (const mutant of fileResult.mutants) {
               if (!existingIds.has(mutant.id)) {
-                aggregatedFiles[filePath].mutants.push(mutant);
+                mspResult.files[filePath].mutants.push(mutant);
               }
             }
           }
         }
         
         if (progressToken !== undefined) {
-          // console.error(`[strykerMutationTest] Sending progress notification to MCP client with token ${progressToken}`);
           extra.sendNotification({
             method: "notifications/progress",
             params: {
@@ -92,7 +99,6 @@ async function strykerMutationTestHandler(
             );
           });
         } else {
-          // No progress token, so we skip sending progress notifications
           console.error("[strykerMutationTest] No progressToken - skipping MCP notification");
         }
       },
@@ -101,24 +107,62 @@ async function strykerMutationTestHandler(
       },
     });
 
-    // Await the final resolved result from the observable
-    const finalResult: MutationTestResult = await lastValueFrom(observable);
+    // Await completion of observable
+    await lastValueFrom(observable);
 
     progressSub.unsubscribe();
 
-    // Aggregate progress updates into final result: the final result we get from Stryker Server is otherwise empty
-    const result: MutationTestResult = {
-      ...finalResult,
-      files: Object.keys(aggregatedFiles).length > 0 ? aggregatedFiles : finalResult.files,
+    // Convert to report schema format for metrics calculation
+    const reportSchemaResult: ReportSchemaMutationTestResult = {
+      schemaVersion: '1',
+      thresholds: {
+        high: 80,
+        low: 60,
+      },
+      files: Object.fromEntries(
+        Object.entries(mspResult.files).map(([filePath, fileResult]) => [
+          filePath,
+          {
+            language: filePath.endsWith('.ts') || filePath.endsWith('.tsx') ? 'typescript' : 'javascript',
+            mutants: fileResult.mutants,
+            source: '', // Source not needed for metrics calculation
+          },
+        ])
+      ),
     };
 
-    // Optionally write JSON report to a temp file and return as a resource
-    // const reportPath = path.join(os.tmpdir(), `${uuid()}.mutation-report.json`);
-    // await writeFile(reportPath, JSON.stringify(result, null, 2), "utf-8");
+    // Calculate metrics from the report schema result
+    const sutMetrics = calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
+    
+    // Extract plain numeric values from the metrics (avoiding circular references)
+    const metrics = {
+      mutationScore: sutMetrics.mutationScore,
+      mutationScoreBasedOnCoveredCode: sutMetrics.mutationScoreBasedOnCoveredCode,
+      killed: sutMetrics.killed,
+      timeout: sutMetrics.timeout,
+      survived: sutMetrics.survived,
+      noCoverage: sutMetrics.noCoverage,
+      runtimeErrors: sutMetrics.runtimeErrors,
+      compileErrors: sutMetrics.compileErrors,
+      totalDetected: sutMetrics.totalDetected,
+      totalUndetected: sutMetrics.totalUndetected,
+      totalCovered: sutMetrics.totalCovered,
+      totalValid: sutMetrics.totalValid,
+      totalInvalid: sutMetrics.totalInvalid,
+      totalMutants: sutMetrics.totalMutants,
+      pending: sutMetrics.pending,
+      ignored: sutMetrics.ignored,
+    };
 
+    // Return metrics as text and MSP result as structured content
     return {
-      content: [],
-      structuredContent: result
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(metrics, null, 2),
+        },
+      ],
+      structuredContent: mspResult
     };
 
   } catch (err) {
@@ -134,4 +178,3 @@ async function strykerMutationTestHandler(
     };
   }
 }
-
