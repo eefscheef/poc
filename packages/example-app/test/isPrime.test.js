@@ -13,6 +13,4 @@ describe('isPrime', () => {
     expect(isPrime(100)).toBe(false);
   });
 
-  // Intentional gap: no explicit test for n = 1 (or <= 1)
-  // This lets certain mutants survive for demonstration.
 });
