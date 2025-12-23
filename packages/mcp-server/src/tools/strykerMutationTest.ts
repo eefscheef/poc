@@ -9,6 +9,10 @@ import {
   calculateMutationTestMetrics
 } from 'mutation-testing-metrics';
 import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
+import {
+  calculateMutationTestMetrics
+} from 'mutation-testing-metrics';
+import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
 import { lastValueFrom } from "rxjs";
 
 export function registerStrykerMutationTest(
@@ -62,22 +66,33 @@ async function strykerMutationTestHandler(
       files: {},
     };
     
+    // Build MutationTestResult (MSP format) incrementally as observables come in
+    const mspResult: MutationTestResult = {
+      files: {},
+    };
+    
     // Subscribe for progress updates
     const progressSub = observable.subscribe({
       next(progressNotification: MutationTestResult) {
         progressEventCount++;
         
         // Aggregate file results in MSP format
+        // Aggregate file results in MSP format
         if (progressNotification.files) {
           for (const [filePath, fileResult] of Object.entries(progressNotification.files)) {
             if (!mspResult.files[filePath]) {
               mspResult.files[filePath] = { mutants: [] };
+            if (!mspResult.files[filePath]) {
+              mspResult.files[filePath] = { mutants: [] };
             }
+            
             
             // Merge mutants arrays, avoiding duplicates by ID
             const existingIds = new Set(mspResult.files[filePath].mutants.map(m => m.id));
+            const existingIds = new Set(mspResult.files[filePath].mutants.map(m => m.id));
             for (const mutant of fileResult.mutants) {
               if (!existingIds.has(mutant.id)) {
+                mspResult.files[filePath].mutants.push(mutant);
                 mspResult.files[filePath].mutants.push(mutant);
               }
             }
@@ -109,6 +124,8 @@ async function strykerMutationTestHandler(
 
     // Await completion of observable
     await lastValueFrom(observable);
+    // Await completion of observable
+    await lastValueFrom(observable);
 
     progressSub.unsubscribe();
 
@@ -136,6 +153,13 @@ async function strykerMutationTestHandler(
 
     // Return metrics as text and MSP result as structured content
     return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(metrics, null, 2),
+        },
+      ],
+      structuredContent: mspResult
       content: [
         {
           type: "text",
