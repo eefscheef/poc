@@ -31,7 +31,7 @@ export function registerStrykerStart(
       try {
         if (strykerServer.isInitialized()) {
           return {
-            content: [{ type: "text", text: "✅ Stryker server is already running." }],
+            content: [{ type: "text", text: "Stryker server is already running." }],
           };
         }
 
