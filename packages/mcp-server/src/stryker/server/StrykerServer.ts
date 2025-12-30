@@ -47,6 +47,12 @@ export class StrykerServer {
         await this.transport.init();
         this.logger.info(`[StrykerServer] Transport initialized (${Date.now() - startTime}ms)`);
         
+        // Listen for process exit to track server crashes
+        this.process.once('exit', (code, signal) => {
+            this.logger.error(`[StrykerServer] Process exited unexpectedly (code: ${code}, signal: ${signal})`);
+            this.initialized = false;
+        });
+        
         // Forward responses from transport to the JSON‑RPC client
         this.transport.messages.subscribe((msg) => {
             this.logger.info(`[JSON-RPC] Received response: ${JSON.stringify(msg).substring(0, 200)}`);

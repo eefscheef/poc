@@ -44,6 +44,11 @@ export class Process extends EventEmitter {
         this.logger.info(`Server started with PID ${this.#proc?.pid}`);
         resolve();
       });
+
+      this.#proc.on('exit', (code, signal) => {
+        this.logger.info(`Server process exited with code ${code}, signal ${signal}`);
+        this.emit('exit', code, signal);
+      });
     });
   }
 
