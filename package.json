@@ -3,15 +3,14 @@
   "private": true,
   "workspaces": [
     "packages/example-app",
-    "packages/mcp-server"
+    "packages/mcp-server",
+    "packages/cli"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "mutate": "npm run mutate --workspaces --if-present"
-  },
-  "devDependencies": {
-    "@stryker-mutator/core": "9.4.0"
+    "mutate": "npm run mutate --workspaces --if-present",
+    "cli": "npm run start --workspace=packages/cli"
   },
   "overrides": {
     "@stryker-mutator/core": "9.4.0",
