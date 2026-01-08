@@ -9,7 +9,7 @@ import { z } from "zod";
  */
 const ZStartStrykerInput = z.object({
   cwd: z.string().describe("The working directory (usually the root of the target project)."),
-  configFilePath: z.string().optional().describe("Optional path to a Stryker config file (e.g. 'stryker.config.js')."),
+  configFilePath: z.string().describe("Optional path to a Stryker config file (e.g. 'stryker.config.js')."),
 });
 export type StartStrykerInput = z.infer<typeof ZStartStrykerInput>;
 
