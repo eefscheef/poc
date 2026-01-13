@@ -6,3 +6,4 @@ reports/*
 /reports
 build/
 .idea
+.env

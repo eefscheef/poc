@@ -10,7 +10,8 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "mutate": "npm run mutate --workspaces --if-present",
-    "cli": "npm run start --workspace=packages/cli"
+    "precli": "npm run build --workspace=packages/cli",
+    "cli": "node packages/cli/build/index.js"
   },
   "overrides": {
     "@stryker-mutator/core": "9.4.0",
