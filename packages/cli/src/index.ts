@@ -11,7 +11,7 @@ config();
 const program = new Command();
 
 program
-  .name('clanka')
+  .name('testinator')
   .description(
     'Automated test generation using Stryker mutation testing and MCP agents'
   )
