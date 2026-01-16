@@ -2,6 +2,7 @@ node_modules
 .vscode/*
 !.vscode/settings.json
 !.vscode/mcp.json
+.nyc_output
 reports/*
 /reports
 build/
