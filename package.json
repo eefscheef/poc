@@ -12,11 +12,24 @@
     "test": "npm run test --workspaces --if-present",
     "mutate": "npm run mutate --workspaces --if-present",
     "precli": "npm run build --workspace=packages/cli",
-    "cli": "node packages/cli/build/index.js"
+    "cli": "node packages/cli/build/index.js",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "overrides": {
     "@stryker-mutator/core": "9.4.0",
     "@stryker-mutator/*": "9.4.0",
     "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.0",
+    "typescript-eslint": "^8.53.0"
   }
 }
