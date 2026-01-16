@@ -52,7 +52,8 @@ export function registerTestGenerationPrompt(
    - Analyze the discovered mutants to understand what code needs test coverage
 
 3. **Generate/Improve Tests**
-   - Create or enhance (Jest) test files to kill the surviving mutants
+   - Create or enhance test files to kill the surviving mutants. Look at the Stryker configuration file to find which test runner is used.
+   - When no tests exist, use Mocha. Otherwise, defer to the project's existing test framework
    - Focus on edge cases, boundary conditions, and mutation-specific scenarios
    - Ensure tests are specific and meaningful, not just increasing coverage
 
