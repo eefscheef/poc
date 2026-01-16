@@ -6,9 +6,9 @@
  * `'httpClient'` are used.
  */
 export const tokens = {
-    logger: 'logger',
-    processConfig: 'processConfig',
-    process: 'process',
-    transport: 'transport',
-    mcpServer: 'mcpServer',
+	logger: 'logger',
+	processConfig: 'processConfig',
+	process: 'process',
+	transport: 'transport',
+	mcpServer: 'mcpServer',
 } as const;

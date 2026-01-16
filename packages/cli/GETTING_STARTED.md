@@ -32,18 +32,21 @@ cp .env.example .env
 Edit `.env` and add your API credentials. Choose one of the following:
 
 **Option A: OpenAI**
+
 ```env
 OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=gpt-4
 ```
 
 **Option B: Anthropic**
+
 ```env
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
 ```
 
 **Option C: Custom OpenAI-Compatible API**
+
 ```env
 OPENAI_API_KEY=your-key-here
 OPENAI_BASE_URL=https://api.your-provider.com/v1
@@ -68,11 +71,13 @@ npm start
 ### 5. Follow the Prompts
 
 The CLI will ask you for:
+
 - **Project directory**: Path to your JavaScript/TypeScript project
-  - This should be a project with source files and (optionally) existing tests
-  - The project should have a `stryker.config.mjs` file
+    - This should be a project with source files and (optionally) existing tests
+    - The project should have a `stryker.config.mjs` file
 
 Example:
+
 ```
 Enter the path to your JavaScript/TypeScript project: ../example-app
 ```
@@ -98,18 +103,18 @@ npm start -- generate --project ../example-app --max-iterations 5
 ## What Happens During Test Generation
 
 1. **Server Connection**: The CLI connects to two MCP servers:
-   - Stryker MCP server (for mutation testing)
-   - Filesystem server (for file access)
+    - Stryker MCP server (for mutation testing)
+    - Filesystem server (for file access)
 
 2. **AI Agent Initialization**: An AI agent is created with your chosen LLM
 
 3. **Test Generation Loop**:
-   - Agent analyzes your codebase
-   - Generates or improves test files
-   - Runs Stryker mutation testing
-   - Identifies surviving mutants
-   - Improves tests to kill more mutants
-   - Repeats until convergence or max iterations
+    - Agent analyzes your codebase
+    - Generates or improves test files
+    - Runs Stryker mutation testing
+    - Identifies surviving mutants
+    - Improves tests to kill more mutants
+    - Repeats until convergence or max iterations
 
 4. **Real-time Output**: Watch the agent work with live streaming output
 
@@ -160,6 +165,7 @@ npm run cli -- generate --project ./packages/example-app
 ```
 
 This project already has:
+
 - Source files (`fizzbuzz.js`, `isPrime.js`)
 - Existing tests
 - Stryker configuration
@@ -171,6 +177,7 @@ The agent will analyze the existing tests and improve them based on mutation tes
 ### Error: "Stryker MCP server not found"
 
 **Solution**: Make sure you've built the MCP server:
+
 ```bash
 npm run build
 ```
@@ -178,6 +185,7 @@ npm run build
 ### Error: "No API key found"
 
 **Solution**: Create a `.env` file in `packages/cli` with your API key:
+
 ```bash
 cd packages/cli
 cp .env.example .env
@@ -190,7 +198,8 @@ cp .env.example .env
 
 ### The agent seems stuck or not making progress
 
-**Solution**: 
+**Solution**:
+
 - Check if your LLM provider API is responding
 - Verify you have sufficient API credits
 - Try reducing `--max-iterations` for a quicker test
@@ -199,6 +208,7 @@ cp .env.example .env
 ### Tests aren't being generated
 
 **Solution**:
+
 - Ensure your project has a `stryker.config.mjs` file
 - Verify the project structure is accessible
 - Check that the filesystem MCP server has access to the directory

@@ -1,7 +1,5 @@
 {
-    "cSpell.words": [
-        "modelcontextprotocol"
-    ],
-    "jest.jestCommandLine": "npm run test --",
-    "jest.rootPath": "packages\\example-app"
+	"cSpell.words": ["modelcontextprotocol"],
+	"jest.jestCommandLine": "npm run test --",
+	"jest.rootPath": "packages\\example-app"
 }

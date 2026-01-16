@@ -3,12 +3,7 @@
 		"stryker-mcp-server": {
 			"type": "stdio",
 			"command": "npm",
-			"args": [
-				"run",
-				"--workspace",
-				"mcp-server",
-				"mcp"
-			]
+			"args": ["run", "--workspace", "mcp-server", "mcp"]
 		}
 	},
 	"inputs": []
