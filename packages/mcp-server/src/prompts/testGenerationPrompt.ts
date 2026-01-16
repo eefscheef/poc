@@ -1,39 +1,37 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
-import { PromptMessage } from "@modelcontextprotocol/sdk/types.js";
-
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+import { PromptMessage } from '@modelcontextprotocol/sdk/types.js';
 
 // Zod schema for the prompt arguments
 const iterativeTestArgsSchema = z.object({
-  projectDirectory: z.string().describe("Path to the project root"),
-  maxIterations: z.coerce // Use coerce to automatically convert strings to numbers. Necessary because inspector UI turns everything into strings
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .default(4)
-    .describe("Maximum number of mutation test iterations"),
+	projectDirectory: z.string().describe('Path to the project root'),
+	maxIterations: z.coerce // Use coerce to automatically convert strings to numbers. Necessary because inspector UI turns everything into strings
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.default(4)
+		.describe('Maximum number of mutation test iterations'),
 });
 
-export function registerTestGenerationPrompt(
-  mcpServer: McpServer
-) {
-  mcpServer.registerPrompt(
-    "strykerPrompt", 
-    {title: "Iterative Unit Test Generation for JavaScript/TypeScript Projects with Stryker",
-    description:
-      "Generate and improve tests with Stryker. Start the mutation server, create tests, " +
-      "run mutation analysis, and iteratively improve until convergence or a maximum number of iterations.",
-    argsSchema: iterativeTestArgsSchema.shape
-    },
-    // The callback builds the messages that clients will retrieve
-    async ({ projectDirectory, maxIterations }) => {
-      const messages: PromptMessage[] = [
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: `You are an expert test generator tasked with creating and iteratively improving unit tests for a JavaScript/TypeScript project using Stryker mutation testing.
+export function registerTestGenerationPrompt(mcpServer: McpServer) {
+	mcpServer.registerPrompt(
+		'strykerPrompt',
+		{
+			title: 'Iterative Unit Test Generation for JavaScript/TypeScript Projects with Stryker',
+			description:
+				'Generate and improve tests with Stryker. Start the mutation server, create tests, ' +
+				'run mutation analysis, and iteratively improve until convergence or a maximum number of iterations.',
+			argsSchema: iterativeTestArgsSchema.shape,
+		},
+		// The callback builds the messages that clients will retrieve
+		async ({ projectDirectory, maxIterations }) => {
+			const messages: PromptMessage[] = [
+				{
+					role: 'user',
+					content: {
+						type: 'text',
+						text: `You are an expert test generator tasked with creating and iteratively improving unit tests for a JavaScript/TypeScript project using Stryker mutation testing.
 
 **Project Directory**: ${projectDirectory}
 **Maximum Iterations**: ${maxIterations}
@@ -79,12 +77,10 @@ export function registerTestGenerationPrompt(
 - Each iteration should show measurable improvement in mutation score
 - Stop early if mutation score stops improving significantly
 - Focus on quality tests that catch real bugs, not just satisfying mutation coverage`,
-          },
-        },
-      ];
-      return { messages };
-    }
-  )
+					},
+				},
+			];
+			return { messages };
+		},
+	);
 }
-
-

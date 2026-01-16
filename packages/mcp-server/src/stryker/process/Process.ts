@@ -6,61 +6,61 @@ import { ProcessConfig } from './ProcessConfig.ts';
 import { tokens } from '../di/tokens.ts';
 
 export class Process extends EventEmitter {
-  static inject = [tokens.processConfig, tokens.logger] as const;
-  private readonly config: ProcessConfig;
-  private readonly logger: Logger;
-  #proc: ChildProcess | undefined;
+	static inject = [tokens.processConfig, tokens.logger] as const;
+	private readonly config: ProcessConfig;
+	private readonly logger: Logger;
+	#proc: ChildProcess | undefined;
 
-  constructor(config: ProcessConfig, logger: Logger) {
-    super();
-    this.config = config;
-    this.logger = logger;
-  }
+	constructor(config: ProcessConfig, logger: Logger) {
+		super();
+		this.config = config;
+		this.logger = logger;
+	}
 
-  async init(): Promise<void> {
-    const { path, args = ['stryker', 'serve', 'stdio'], cwd = process.cwd() } = this.config;
-    
-    this.logger.info(`Spawning server: ${path} ${args.join(' ')} (cwd=${cwd})`);
+	async init(): Promise<void> {
+		const { path, args = ['stryker', 'serve', 'stdio'], cwd = process.cwd() } = this.config;
 
-    return new Promise((resolve, reject) => {
-      this.#proc = spawn(path, args, {
-        cwd,
-        stdio: 'pipe',
-      });
+		this.logger.info(`Spawning server: ${path} ${args.join(' ')} (cwd=${cwd})`);
 
-      if (!this.#proc.stdout || !this.#proc.stderr) {
-        return reject(new Error('Failed to capture stdout/stderr'));
-      }
+		return new Promise((resolve, reject) => {
+			this.#proc = spawn(path, args, {
+				cwd,
+				stdio: 'pipe',
+			});
 
-      this.#proc.stdout.on('data', (data) => this.emit('stdout', data));
-      this.#proc.stderr.on('data', (data) => this.emit('stderr', data));
+			if (!this.#proc.stdout || !this.#proc.stderr) {
+				return reject(new Error('Failed to capture stdout/stderr'));
+			}
 
-      this.#proc.on('error', (err) => {
-        this.logger.error(`Server process error: ${err.message}`);
-        reject(err);
-      });
+			this.#proc.stdout.on('data', (data) => this.emit('stdout', data));
+			this.#proc.stderr.on('data', (data) => this.emit('stderr', data));
 
-      this.#proc.on('spawn', () => {
-        this.logger.info(`Server started with PID ${this.#proc?.pid}`);
-        resolve();
-      });
+			this.#proc.on('error', (err) => {
+				this.logger.error(`Server process error: ${err.message}`);
+				reject(err);
+			});
 
-      this.#proc.on('exit', (code, signal) => {
-        this.logger.info(`Server process exited with code ${code}, signal ${signal}`);
-        this.emit('exit', code, signal);
-      });
-    });
-  }
+			this.#proc.on('spawn', () => {
+				this.logger.info(`Server started with PID ${this.#proc?.pid}`);
+				resolve();
+			});
 
-  write(data: string | Buffer) {
-    if (!this.#proc || !this.#proc.stdin) {
-      throw new Error('Process not started or stdin closed');
-    }
-    this.#proc.stdin.write(data);
-  }
+			this.#proc.on('exit', (code, signal) => {
+				this.logger.info(`Server process exited with code ${code}, signal ${signal}`);
+				this.emit('exit', code, signal);
+			});
+		});
+	}
 
-  dispose() {
-    this.#proc?.removeAllListeners();
-    this.#proc?.kill();
-  }
+	write(data: string | Buffer) {
+		if (!this.#proc || !this.#proc.stdin) {
+			throw new Error('Process not started or stdin closed');
+		}
+		this.#proc.stdin.write(data);
+	}
+
+	dispose() {
+		this.#proc?.removeAllListeners();
+		this.#proc?.kill();
+	}
 }

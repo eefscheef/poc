@@ -1,42 +1,42 @@
 {
-  "name": "stryker-test-generator-cli",
-  "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "description": "CLI tool for automated test generation using Stryker mutation testing",
-  "main": "build/index.js",
-  "bin": {
-    "stryker-test-gen": "build/index.js"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node --enable-source-maps build/index.js",
-    "dev": "tsx watch src/index.ts",
-    "test": "tsx --test test/**/*.test.ts",
-    "test:live": "cross-env RUN_LIVE_TESTS=true tsx --test test/**/*.test.ts"
-  },
-  "dependencies": {
-    "@langchain/anthropic": "^1.3.6",
-    "@langchain/google-genai": "^2.1.6",
-    "@langchain/openai": "^1.2.1",
-    "@langfuse/langchain": "^4.5.1",
-    "@modelcontextprotocol/server-filesystem": "^2025.12.18",
-    "chalk": "^5.0.0",
-    "commander": "^14.0.2",
-    "cross-env": "^10.1.0",
-    "dotenv": "^17.2.3",
-    "inquirer": "^12.0.0",
-    "langchain": "^1.2.6",
-    "mcp-use": "^1.12.0",
-    "ora": "^9.0.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "zod": "^4.0.0"
-  },
-  "devDependencies": {
-    "@types/inquirer": "^9.0.7",
-    "@types/node": "^22.19.1",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
-  }
+	"name": "stryker-test-generator-cli",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"description": "CLI tool for automated test generation using Stryker mutation testing",
+	"main": "build/index.js",
+	"bin": {
+		"stryker-test-gen": "build/index.js"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"start": "node --enable-source-maps build/index.js",
+		"dev": "tsx watch src/index.ts",
+		"test": "tsx --test test/**/*.test.ts",
+		"test:live": "cross-env RUN_LIVE_TESTS=true tsx --test test/**/*.test.ts"
+	},
+	"dependencies": {
+		"@langchain/anthropic": "^1.3.6",
+		"@langchain/google-genai": "^2.1.6",
+		"@langchain/openai": "^1.2.1",
+		"@langfuse/langchain": "^4.5.1",
+		"@modelcontextprotocol/server-filesystem": "^2025.12.18",
+		"chalk": "^5.0.0",
+		"commander": "^14.0.2",
+		"cross-env": "^10.1.0",
+		"dotenv": "^17.2.3",
+		"inquirer": "^12.0.0",
+		"langchain": "^1.2.6",
+		"mcp-use": "^1.12.0",
+		"ora": "^9.0.0",
+		"react": "^19.2.3",
+		"react-dom": "^19.2.3",
+		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@types/inquirer": "^9.0.7",
+		"@types/node": "^22.19.1",
+		"tsx": "^4.20.5",
+		"typescript": "^5.9.2"
+	}
 }

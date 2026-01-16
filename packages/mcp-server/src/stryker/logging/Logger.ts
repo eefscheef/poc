@@ -6,15 +6,15 @@
  * `inject` property because it has no dependencies.
  */
 export class Logger {
-    private readonly prefix: string;
-    constructor(prefix = 'MCP') {
-        this.prefix = prefix;
-    }
-    info(message: string) {
-        // Write to stderr instead of stdout to avoid corrupting Mutation Server Protocol
-        console.error(`[INFO] [${this.prefix}] ${message}`);
-    }
-    error(message: string) {
-        console.error(`[ERROR] [${this.prefix}] ${message}`);
-    }
+	private readonly prefix: string;
+	constructor(prefix = 'MCP') {
+		this.prefix = prefix;
+	}
+	info(message: string) {
+		// Write to stderr instead of stdout to avoid corrupting Mutation Server Protocol
+		console.error(`[INFO] [${this.prefix}] ${message}`);
+	}
+	error(message: string) {
+		console.error(`[ERROR] [${this.prefix}] ${message}`);
+	}
 }

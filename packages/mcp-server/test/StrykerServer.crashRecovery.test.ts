@@ -12,166 +12,169 @@ import { ProcessConfig } from '../src/stryker/process/ProcessConfig.js';
  * can be restarted by ensuring the 'exit' event properly resets state.
  */
 describe('StrykerServer crash recovery', () => {
-  let mockProcess: jest.Mocked<Process>;
-  let mockTransport: jest.Mocked<StdioTransport>;
-  let mockLogger: jest.Mocked<Logger>;
-  let processConfig: ProcessConfig;
-  let strykerServer: StrykerServer;
-  let processEmitter: EventEmitter;
+	let mockProcess: jest.Mocked<Process>;
+	let mockTransport: jest.Mocked<StdioTransport>;
+	let mockLogger: jest.Mocked<Logger>;
+	let processConfig: ProcessConfig;
+	let strykerServer: StrykerServer;
+	let processEmitter: EventEmitter;
 
-  beforeEach(() => {
-    // Create an EventEmitter to simulate process events
-    processEmitter = new EventEmitter();
+	beforeEach(() => {
+		// Create an EventEmitter to simulate process events
+		processEmitter = new EventEmitter();
 
-    // Mock Process with EventEmitter methods
-    mockProcess = Object.assign(processEmitter, {
-      init: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      write: jest.fn(),
-      dispose: jest.fn(),
-    }) as unknown as jest.Mocked<Process>;
+		// Mock Process with EventEmitter methods
+		mockProcess = Object.assign(processEmitter, {
+			init: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+			write: jest.fn(),
+			dispose: jest.fn(),
+		}) as unknown as jest.Mocked<Process>;
 
-    // Mock Transport
-    mockTransport = {
-      init: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      send: jest.fn(),
-      dispose: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      messages: {
-        subscribe: jest.fn((callback) => {
-          // Return a mock subscription
-          return { unsubscribe: jest.fn() };
-        }),
-      },
-      notifications: {
-        pipe: jest.fn(),
-      },
-      connected: false,
-    } as unknown as jest.Mocked<StdioTransport>;
+		// Mock Transport
+		mockTransport = {
+			init: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+			send: jest.fn(),
+			dispose: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+			messages: {
+				subscribe: jest.fn(() => {
+					// Return a mock subscription
+					return { unsubscribe: jest.fn() };
+				}),
+			},
+			notifications: {
+				pipe: jest.fn(),
+			},
+			connected: false,
+		} as unknown as jest.Mocked<StdioTransport>;
 
-    // Mock Logger
-    mockLogger = {
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      debug: jest.fn(),
-    } as unknown as jest.Mocked<Logger>;
+		// Mock Logger
+		mockLogger = {
+			info: jest.fn(),
+			error: jest.fn(),
+			warn: jest.fn(),
+			debug: jest.fn(),
+		} as unknown as jest.Mocked<Logger>;
 
-    // Process config
-    processConfig = {
-      path: 'npx',
-      args: ['stryker', 'serve', 'stdio'],
-      cwd: '/test/path',
-    };
+		// Process config
+		processConfig = {
+			path: 'npx',
+			args: ['stryker', 'serve', 'stdio'],
+			cwd: '/test/path',
+		};
 
-    // Create StrykerServer instance
-    strykerServer = new StrykerServer(
-      mockProcess,
-      mockTransport,
-      mockLogger,
-      processConfig
-    );
-  });
+		// Create StrykerServer instance
+		strykerServer = new StrykerServer(mockProcess, mockTransport, mockLogger, processConfig);
+	});
 
-  afterEach(() => {
-    processEmitter.removeAllListeners();
-  });
+	afterEach(() => {
+		processEmitter.removeAllListeners();
+	});
 
-  it('should reset initialized flag when process exits', async () => {
-    // Mock the configure call to prevent actual RPC
-    const configureMock = jest.fn<() => Promise<{ version: string }>>().mockResolvedValue({ version: '1.0.0' });
-    (strykerServer as any).configure = configureMock;
+	it('should reset initialized flag when process exits', async () => {
+		// Mock the configure call to prevent actual RPC
+		const configureMock = jest
+			.fn<() => Promise<{ version: string }>>()
+			.mockResolvedValue({ version: '1.0.0' });
+		strykerServer.configure = configureMock;
 
-    // Initialize the server
-    await strykerServer.init();
-    
-    // Verify server is initialized
-    expect(strykerServer.isInitialized()).toBe(true);
+		// Initialize the server
+		await strykerServer.init();
 
-    // Simulate process crash/exit
-    processEmitter.emit('exit', 1, null);
+		// Verify server is initialized
+		expect(strykerServer.isInitialized()).toBe(true);
 
-    // Wait for event to be processed
-    await new Promise(resolve => setImmediate(resolve));
+		// Simulate process crash/exit
+		processEmitter.emit('exit', 1, null);
 
-    // Verify initialized flag was reset
-    expect(strykerServer.isInitialized()).toBe(false);
-  });
+		// Wait for event to be processed
+		await new Promise((resolve) => setImmediate(resolve));
 
-  it('should allow reinitialization after process crash', async () => {
-    // Mock the configure call
-    const configureMock = jest.fn<() => Promise<{ version: string }>>().mockResolvedValue({ version: '1.0.0' });
-    (strykerServer as any).configure = configureMock;
+		// Verify initialized flag was reset
+		expect(strykerServer.isInitialized()).toBe(false);
+	});
 
-    // First initialization
-    await strykerServer.init();
-    expect(strykerServer.isInitialized()).toBe(true);
+	it('should allow reinitialization after process crash', async () => {
+		// Mock the configure call
+		const configureMock = jest
+			.fn<() => Promise<{ version: string }>>()
+			.mockResolvedValue({ version: '1.0.0' });
+		strykerServer.configure = configureMock;
 
-    // Simulate crash
-    processEmitter.emit('exit', 1, null);
-    await new Promise(resolve => setImmediate(resolve));
-    expect(strykerServer.isInitialized()).toBe(false);
+		// First initialization
+		await strykerServer.init();
+		expect(strykerServer.isInitialized()).toBe(true);
 
-    // Reset mocks for second init
-    mockProcess.init.mockClear();
-    mockTransport.init.mockClear();
-    configureMock.mockClear();
+		// Simulate crash
+		processEmitter.emit('exit', 1, null);
+		await new Promise((resolve) => setImmediate(resolve));
+		expect(strykerServer.isInitialized()).toBe(false);
 
-    // Should be able to reinitialize
-    await strykerServer.init();
-    
-    expect(mockProcess.init).toHaveBeenCalled();
-    expect(mockTransport.init).toHaveBeenCalled();
-    expect(configureMock).toHaveBeenCalled();
-    expect(strykerServer.isInitialized()).toBe(true);
-  });
+		// Reset mocks for second init
+		mockProcess.init.mockClear();
+		mockTransport.init.mockClear();
+		configureMock.mockClear();
 
-  it('should log error message when process exits unexpectedly', async () => {
-    // Mock the configure call
-    const configureMock = jest.fn<() => Promise<{ version: string }>>().mockResolvedValue({ version: '1.0.0' });
-    (strykerServer as any).configure = configureMock;
+		// Should be able to reinitialize
+		await strykerServer.init();
 
-    await strykerServer.init();
+		expect(mockProcess.init).toHaveBeenCalled();
+		expect(mockTransport.init).toHaveBeenCalled();
+		expect(configureMock).toHaveBeenCalled();
+		expect(strykerServer.isInitialized()).toBe(true);
+	});
 
-    // Simulate exit with code and signal
-    processEmitter.emit('exit', 137, 'SIGKILL');
-    await new Promise(resolve => setImmediate(resolve));
+	it('should log error message when process exits unexpectedly', async () => {
+		// Mock the configure call
+		const configureMock = jest
+			.fn<() => Promise<{ version: string }>>()
+			.mockResolvedValue({ version: '1.0.0' });
+		strykerServer.configure = configureMock;
 
-    // Verify error was logged
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      expect.stringContaining('Process exited unexpectedly')
-    );
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      expect.stringContaining('137')
-    );
-  });
+		await strykerServer.init();
 
-  it('should handle normal exit (code 0) as well', async () => {
-    // Mock the configure call
-    const configureMock = jest.fn<() => Promise<{ version: string }>>().mockResolvedValue({ version: '1.0.0' });
-    (strykerServer as any).configure = configureMock;
+		// Simulate exit with code and signal
+		processEmitter.emit('exit', 137, 'SIGKILL');
+		await new Promise((resolve) => setImmediate(resolve));
 
-    await strykerServer.init();
-    expect(strykerServer.isInitialized()).toBe(true);
+		// Verify error was logged
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			expect.stringContaining('Process exited unexpectedly'),
+		);
+		expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('137'));
+	});
 
-    // Simulate normal exit
-    processEmitter.emit('exit', 0, null);
-    await new Promise(resolve => setImmediate(resolve));
+	it('should handle normal exit (code 0) as well', async () => {
+		// Mock the configure call
+		const configureMock = jest
+			.fn<() => Promise<{ version: string }>>()
+			.mockResolvedValue({ version: '1.0.0' });
+		strykerServer.configure = configureMock;
 
-    // Still should reset state
-    expect(strykerServer.isInitialized()).toBe(false);
-  });
+		await strykerServer.init();
+		expect(strykerServer.isInitialized()).toBe(true);
 
-  it('should only attach exit handler once during init', async () => {
-    const configureMock = jest.fn<() => Promise<{ version: string }>>().mockResolvedValue({ version: '1.0.0' });
-    (strykerServer as any).configure = configureMock;
+		// Simulate normal exit
+		processEmitter.emit('exit', 0, null);
+		await new Promise((resolve) => setImmediate(resolve));
 
-    // Count event listeners
-    const initialListenerCount = processEmitter.listenerCount('exit');
-    
-    await strykerServer.init();
-    
-    const afterInitCount = processEmitter.listenerCount('exit');
-    
-    // Should have added exactly one listener
-    expect(afterInitCount).toBe(initialListenerCount + 1);
-  });
+		// Still should reset state
+		expect(strykerServer.isInitialized()).toBe(false);
+	});
+
+	it('should only attach exit handler once during init', async () => {
+		const configureMock = jest
+			.fn<() => Promise<{ version: string }>>()
+			.mockResolvedValue({ version: '1.0.0' });
+		strykerServer.configure = configureMock;
+
+		// Count event listeners
+		const initialListenerCount = processEmitter.listenerCount('exit');
+
+		await strykerServer.init();
+
+		const afterInitCount = processEmitter.listenerCount('exit');
+
+		// Should have added exactly one listener
+		expect(afterInitCount).toBe(initialListenerCount + 1);
+	});
 });
