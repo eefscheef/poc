@@ -21,9 +21,9 @@ export function registerStrykerReadJson(server: McpServer) {
 	server.registerTool(
 		'strykerReadJson',
 		{
-			title: 'Read Stryker JSON report',
-			description:
-				'Reads the Stryker JSON report and returns raw JSON plus official computed metrics.',
+			// title: 'Read Stryker JSON report',
+			// description:
+			// 	'Reads the Stryker JSON report and returns raw JSON plus official computed metrics.',
 			inputSchema: {
 				cwd: z.string().describe('Project directory'),
 				path: z
