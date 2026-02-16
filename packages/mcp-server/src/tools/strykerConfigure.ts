@@ -7,10 +7,10 @@ export function registerStrykerConfigure(mcpServer: McpServer, strykerServer: St
 	mcpServer.registerTool(
 		'strykerConfigure',
 		{
-			title: 'Stryker Configure',
-			description:
-				'Configures the Stryker mutation server using the Mutation Server Protocol (MSP). ' +
-				'Use this to (re)configure the server with a specific config file.',
+			title: '(re)configure Stryker',
+			// description:
+			// 	'Configures the Stryker mutation server using the Mutation Server Protocol (MSP). ' +
+			// 	'Use this to (re)configure the server with a specific config file.',
 			inputSchema: ConfigureParams.shape,
 			outputSchema: ConfigureResult.shape,
 		},
@@ -30,7 +30,7 @@ async function strykerConfigureHandler(
 				content: [
 					{
 						type: 'text',
-						text: 'Stryker server has not started. Please call strykerStart first.',
+						text: "Server hasn't started. Call strykerStart first.",
 					},
 				],
 				isError: true,
@@ -65,7 +65,6 @@ async function strykerConfigureHandler(
 		}
 
 		const truncatedMsg = errorMsg.length > 1200 ? errorMsg.slice(0, 1200) + '...' : errorMsg;
-
 		return {
 			content: [
 				{

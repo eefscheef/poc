@@ -7,19 +7,19 @@ export function registerStrykerDiscover(mcpServer: McpServer, strykerServer: Str
 	mcpServer.registerTool(
 		'strykerDiscover',
 		{
-			title: 'Stryker Discover',
-			description:
-				'Discovers mutants in the project. Optionally specify files or directories to discover mutants in. Paths can be relative paths, or glob patterns.',
+			// title: 'Stryker Discover',
+			// description:
+			// 	'Discovers mutants in the project. Optionally specify files or directories to discover mutants in. Paths can be relative paths, or glob patterns.',
 			inputSchema: DiscoverParams.meta({
-				examples: [
-					{ files: [{ path: 'src/**/*.js' }] }, // [{"path":"src/**/*.js"}] when copy-pasting into inspector
-					{
-						files: [
-							{ path: 'packages/my-app/src/**/*.ts' },
-							{ path: 'src/utils/*.js' },
-						],
-					},
-				],
+				// examples: [
+				// 	{ files: [{ path: 'src/**/*.js' }] }, // [{"path":"src/**/*.js"}] when copy-pasting into inspector
+				// 	{
+				// 		files: [
+				// 			{ path: 'packages/my-app/src/**/*.ts' },
+				// 			{ path: 'src/utils/*.js' },
+				// 		],
+				// 	},
+				// ],
 			}).shape,
 			outputSchema: DiscoverResult.shape,
 		},

@@ -7,14 +7,12 @@ import { z } from 'zod';
  * Zod schema for Stryker server startup.
  */
 const ZStartStrykerInput = z.object({
-	cwd: z
-		.string()
-		.describe(
-			'Absolute path of the working directory we want to spawn the Stryker server in (usually the root of the target project).',
-		),
-	configFilePath: z
-		.string()
-		.describe("Absolute path to the Stryker config file (e.g. 'stryker.config.js')."),
+	cwd: z.string(),
+	// .describe(
+	// 	'Absolute path of the working directory we want to spawn the Stryker server in (usually the root of the target project).',
+	// )
+	configFilePath: z.string(),
+	// .describe("Absolute path to the Stryker config file (e.g. 'stryker.config.js')."),
 });
 export type StartStrykerInput = z.infer<typeof ZStartStrykerInput>;
 
@@ -25,9 +23,9 @@ export function registerStrykerStart(mcpServer: McpServer, strykerServer: Stryke
 	mcpServer.registerTool(
 		'strykerStart',
 		{
-			title: 'Start Stryker Server',
-			description:
-				'Starts the Stryker mutation server from a given project directory and config file.',
+			// title: 'Start Stryker Server',
+			// description:
+			// 	'Starts the Stryker mutation server from a given project directory and config file.',
 			inputSchema: ZStartStrykerInput.shape,
 		},
 		async (input: StartStrykerInput): Promise<CallToolResult> => {
