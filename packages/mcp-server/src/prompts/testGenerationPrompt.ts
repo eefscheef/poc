@@ -31,52 +31,29 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 					role: 'user',
 					content: {
 						type: 'text',
-						text: `You are an expert test generator tasked with creating and iteratively improving unit tests for a JavaScript/TypeScript project using Stryker mutation testing.
+						text: `You generate/repair JS/TS unit tests to improve Stryker mutation score.
 
-**Project Directory**: ${projectDirectory}
-**Maximum Iterations**: ${maxIterations}
+DIR=${projectDirectory}; MAX_ITERS=${maxIterations}
 
-**Your Workflow**:
+Tools: strykerStart({cwd, configFilePath}), strykerDiscover, strykerMutationTest.
 
-1. **Check Stryker Server Status**
-   - First, check if the Stryker mutation server is already running
-   - If NOT already started, use the \`strykerStart\` tool to initialize it with:
-     - cwd: ${projectDirectory}
-     - configFilePath: (path to stryker.config.mjs in the project directory)
-   - If already started, skip this step and proceed to discovery
+Rules:
+- Start Stryker server only if not already running; never restart a running server.
+- Read DIR/stryker.config.mjs to choose the project's test runner; if no tests exist, use Mocha.
+- Target undetected mutants (Stryker: Survived + NoCoverage). Timeouts count as detected; runtime/compile errors are not scored.
+- Stop early if mutation score gain <5% vs previous run.
 
-2. **Discover Mutants**
-   - Use the \`strykerDiscover\` tool to find all potential mutations in the source code
-   - Analyze the discovered mutants to understand what code needs test coverage
+Workflow:
+1) Ensure server running (only if needed): strykerStart(cwd=DIR, configFilePath=DIR/stryker.config.mjs).
+2) Mutants: M = strykerDiscover().
+3) Baseline: R = strykerMutationTest(M).
+4) Loop ≤ MAX_ITERS:
+   - Add focused tests to kill undetected mutants in R (edge cases, boundary conditions, mutation-specific assertions).
+   - R = strykerMutationTest(remaining-undetected-mutants if supported; else M).
+   - Stop if no undetected mutants remain or gain <5%.
 
-3. **Generate/Improve Tests**
-   - Create or enhance test files to kill the surviving mutants. Look at the Stryker configuration file to find which test runner is used.
-   - When no tests exist, use Mocha. Otherwise, defer to the project's existing test framework
-   - Focus on edge cases, boundary conditions, and mutation-specific scenarios
-   - Ensure tests are specific and meaningful, not just increasing coverage
-
-4. **Run Mutation Testing**
-   - Use the \`strykerMutationTest\` tool with the discovered mutants
-   - Pass the mutants from the discover step to the mutation test
-   - Analyze the results to identify surviving mutants
-
-5. **Iterate**
-   - Review which mutants survived and why
-   - Improve tests to kill surviving mutants
-   - Repeat steps 2-4 up to ${maxIterations} times or until mutation score converges (improvement < 5%)
-
-6. **Final Report**
-   - Provide a summary of:
-     - Final mutation score
-     - Number of iterations performed
-     - Key improvements made
-     - Any remaining surviving mutants and why they might be acceptable
-
-**Important Notes**:
-- Do NOT restart the Stryker server if it's already running
-- Each iteration should show measurable improvement in mutation score
-- Stop early if mutation score stops improving significantly
-- Focus on quality tests that catch real bugs, not just satisfying mutation coverage`,
+Final report: final score, iterations, key test changes, remaining undetected mutants + rationale.
+`,
 					},
 				},
 			];
