@@ -1,21 +1,16 @@
-import { MCPClient, Logger } from 'mcp-use';
-import { MCPConfig } from './config.ts';
-import type { Notification } from 'mcp-use';
+import { MCPClient, Logger as McpUseLogger } from 'mcp-use';
+import type { MCPConfig } from './config.ts';
+import type { CliContext } from '../context.ts';
 
-export interface CreateMCPClientOptions {
-	verbose?: boolean;
-	onNotification?: (serverName: string, notification: Notification) => void;
-}
-
-export function createMCPClient(config: MCPConfig, options?: CreateMCPClientOptions): MCPClient {
-	// Configure mcp-use logging based on verbose flag
-	if (options?.verbose) {
-		Logger.configure({ level: 'debug' });
+export function createMCPClient(config: MCPConfig, ctx: CliContext): MCPClient {
+	// Bridge our verbose flag to mcp-use's global logger
+	if (ctx.verbose) {
+		McpUseLogger.configure({ level: 'debug' });
 	}
 
-	const client = new MCPClient({
+	ctx.logger.debug('Creating MCP client', config);
+
+	return new MCPClient({
 		mcpServers: config,
 	});
-
-	return client;
 }
