@@ -1,11 +1,18 @@
 import chalk from 'chalk';
 
+/** Structured logger that all CLI modules can depend on. */
+export interface Logger {
+	info(message: string, data?: unknown): void;
+	error(message: string, data?: unknown): void;
+	debug(message: string, data?: unknown): void;
+}
+
 export interface LoggerOptions {
 	json: boolean;
 	verbose: boolean;
 }
 
-export function createLogger(opts: LoggerOptions) {
+export function createLogger(opts: LoggerOptions): Logger {
 	function log(level: 'info' | 'error' | 'debug', message: string, data?: unknown) {
 		if (level === 'debug' && !opts.verbose) return;
 

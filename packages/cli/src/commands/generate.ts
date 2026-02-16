@@ -1,4 +1,3 @@
-import ora from 'ora';
 import { MCPAgent } from 'mcp-use';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -8,8 +7,10 @@ import { resolveLLMConfig } from '../llm/resolveLLMConfig.ts';
 import { createLLM } from '../llm/providers.ts';
 import { createMCPClient } from '../mcp/createClient.ts';
 import { loadStrykerPrompt } from '../mcp/loadStrykerPrompt.ts';
-import { createLogger } from '../utils/logger.ts';
 import { createMCPConfig } from '../mcp/config.ts';
+import { createCliContext } from '../context.ts';
+import { MetricsCollector } from '../metrics/MetricsCollector.ts';
+import { formatTraceText } from '../metrics/formatTrace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,12 +26,8 @@ export interface GenerateOptions {
 }
 
 export async function generateTests(options: GenerateOptions) {
-	const logger = createLogger({
-		json: !!options.json,
-		verbose: !!options.verbose,
-	});
-
-	const spinner = options.json ? null : ora();
+	const ctx = createCliContext(options);
+	const { logger, spinner } = ctx;
 
 	let agent: MCPAgent | undefined;
 	let client: ReturnType<typeof createMCPClient> | undefined;
@@ -56,9 +53,7 @@ export async function generateTests(options: GenerateOptions) {
 		const monorepoRoot = join(__dirname, '..', '..', '..', '..');
 		const mcpConfig = createMCPConfig(projectDirectory, monorepoRoot);
 
-		client = createMCPClient(mcpConfig, {
-			verbose: options.verbose,
-		});
+		client = createMCPClient(mcpConfig, ctx);
 
 		spinner?.start('Connecting MCP servers...');
 		await client.createAllSessions();
@@ -81,17 +76,34 @@ export async function generateTests(options: GenerateOptions) {
 			llm,
 			client,
 			maxSteps: 1000,
-			verbose: options.verbose,
+			verbose: ctx.verbose,
 			memoryEnabled: true,
 		});
 		await agent.initialize();
 		logger.info('Agent started');
 
-		for await (const _ of agent.prettyStreamEvents({
+		const metrics = new MetricsCollector();
+		const eventStream = agent.streamEvents({
 			prompt,
 			maxSteps: 1000,
-		})) {
-			// Just drain the stream
+		});
+
+		for await (const event of metrics.wrap(eventStream)) {
+			// Render streamed LLM text to stdout (mimics prettyStreamEvents)
+			if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
+				const text = event.data.chunk.text ?? event.data.chunk.content;
+				if (typeof text === 'string' && text.length > 0) {
+					process.stdout.write(text);
+				}
+			}
+		}
+
+		const trace = metrics.finalise();
+
+		if (ctx.json) {
+			logger.info('Session trace', trace);
+		} else {
+			console.log(formatTraceText(trace));
 		}
 
 		logger.info('Test generation completed');
