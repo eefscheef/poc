@@ -10,7 +10,7 @@
 		"build": "tsc -p tsconfig.json",
 		"start": "node --enable-source-maps build/index.js",
 		"mcp": "npm run build && node --enable-source-maps build/index.js",
-		"inspect": "npm run build && npx @modelcontextprotocol/inspector@latest node --enable-source-maps build/index.js"
+		"inspect": "npm run build && npx @modelcontextprotocol/inspector@latest node --enable-source-maps build/index.js -d C:/Users/EverardV/Projects/poc/packages/example-app"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.24.3",
