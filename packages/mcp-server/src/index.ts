@@ -5,7 +5,6 @@ import { registerStrykerDiscover } from './tools/strykerDiscover.ts';
 import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
-import { registerStrykerConfigure } from './tools/strykerConfigure.ts';
 import { registerStrykerMutationTest } from './tools/strykerMutationTest.ts';
 import { registerTestGenerationPrompt } from './prompts/testGenerationPrompt.ts';
 import { Logger } from './stryker/logging/Logger.ts';
@@ -91,7 +90,6 @@ logger.info(`Starting with projectDir="${projectDir}" and configFilePath="${conf
 await strykerServer.init();
 
 // Register tools
-registerStrykerConfigure(mcpServer, strykerServer);
 registerStrykerDiscover(mcpServer, strykerServer);
 registerStrykerMutationTest(mcpServer, strykerServer);
 registerTestGenerationPrompt(mcpServer);
