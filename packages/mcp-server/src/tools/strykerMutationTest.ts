@@ -15,8 +15,6 @@ export function registerStrykerMutationTest(mcpServer: McpServer, strykerServer:
 	mcpServer.registerTool(
 		'strykerMutationTest',
 		{
-			// title: 'Stryker Mutation Test',
-			// description: 'Run mutation testing via Stryker and stream progress.',
 			inputSchema: MutationTestParams.shape,
 			outputSchema: MutationTestResult.shape,
 		},
