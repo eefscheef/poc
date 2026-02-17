@@ -7,10 +7,6 @@ export function registerStrykerConfigure(mcpServer: McpServer, strykerServer: St
 	mcpServer.registerTool(
 		'strykerConfigure',
 		{
-			title: '(re)configure Stryker',
-			// description:
-			// 	'Configures the Stryker mutation server using the Mutation Server Protocol (MSP). ' +
-			// 	'Use this to (re)configure the server with a specific config file.',
 			inputSchema: ConfigureParams.shape,
 			outputSchema: ConfigureResult.shape,
 		},
