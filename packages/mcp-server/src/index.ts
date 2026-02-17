@@ -1,7 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createStrykerServer } from './stryker/createStrykerServer.ts';
-import { registerStrykerDiscover } from './tools/strykerDiscover.ts';
 import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
@@ -90,7 +89,6 @@ logger.info(`Starting with projectDir="${projectDir}" and configFilePath="${conf
 await strykerServer.init();
 
 // Register tools
-registerStrykerDiscover(mcpServer, strykerServer);
 registerStrykerMutationTest(mcpServer, strykerServer);
 registerTestGenerationPrompt(mcpServer);
 
