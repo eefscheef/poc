@@ -7,7 +7,7 @@ import { Process } from '../stryker/process/Process.ts';
 import { StdioTransport } from '../stryker/transport/StdioTransport.ts';
 import { StrykerServer } from '../stryker/server/StrykerServer.ts';
 
-import { registerStrykerMutationTest } from '../mcp/tools/strykerMutationTest.ts';
+import { StrykerMutationTestTool } from '../mcp/tools/strykerMutationTest.ts';
 import { registerTestGenerationPrompt } from '../mcp/prompts/testGenerationPrompt.ts';
 
 export function createServers(logger: Logger, config: ProcessConfig) {
@@ -21,12 +21,14 @@ export function createServers(logger: Logger, config: ProcessConfig) {
 		.provideClass(tokens.strykerServer, StrykerServer)
 		.provideValue(tokens.mcpServer, mcpServer);
 
-	injector.injectFunction(registerStrykerMutationTest);
+	const strykerServer = injector.resolve(tokens.strykerServer);
+
+	injector.injectClass(StrykerMutationTestTool).register();
 	injector.injectFunction(registerTestGenerationPrompt);
 
 	return {
 		injector,
 		mcpServer,
-		strykerServer: injector.resolve(tokens.strykerServer),
+		strykerServer,
 	};
 }
