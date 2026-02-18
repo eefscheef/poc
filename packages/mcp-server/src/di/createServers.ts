@@ -24,6 +24,11 @@ export function createServers(logger: Logger, config: ProcessConfig) {
 	const strykerServer = injector.resolve(tokens.strykerServer);
 
 	injector.injectClass(StrykerMutationTestTool).register();
+	// injector.injectClass(StrykerReadJsonTool).register();
+	// injector.injectClass(StrykerConfigureTool).register();
+	// injector.injectClass(StrykerDiscoverTool).register();
+	// injector.injectClass(StrykerStartTool).register();
+
 	injector.injectFunction(registerTestGenerationPrompt);
 
 	return {
