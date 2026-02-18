@@ -33,7 +33,7 @@ export function registerStrykerStart(mcpServer: McpServer, strykerServer: Stryke
 				strykerServer.updateConfig({
 					path: 'npx',
 					args: ['stryker', 'serve', 'stdio'],
-					cwd: input.cwd,
+					projectDir: input.cwd,
 					configFilePath: input.configFilePath,
 				});
 

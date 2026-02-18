@@ -55,7 +55,7 @@ async function main() {
 	const { mcpServer, strykerServer } = createApp(logger, {
 		path: 'npx',
 		args: ['stryker', 'serve', 'stdio'],
-		cwd: projectDir,
+		projectDir: projectDir,
 		configFilePath,
 	});
 

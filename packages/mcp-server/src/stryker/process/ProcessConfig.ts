@@ -8,7 +8,7 @@ export interface ProcessConfig {
 	/** Command‑line arguments to start the server. Default `["serve", "stdio"]`. */
 	args?: string[];
 	/** Working directory to use when spawning Stryker. */
-	cwd?: string;
+	projectDir?: string;
 	/** Optional path to the Stryker config file to use during initialization. */
 	configFilePath?: string;
 }
