@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { StrykerServer } from '../stryker/server/StrykerServer.ts';
+import { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 import { z } from 'zod';
 
 /**

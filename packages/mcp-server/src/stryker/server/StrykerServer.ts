@@ -1,10 +1,10 @@
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { Observable, merge, from, filter, map, takeUntil } from 'rxjs';
-import { Logger } from '../logging/Logger.ts';
+import { Logger } from '../../logging/Logger.ts';
 import { Process } from '../process/Process.ts';
 import { ProcessConfig } from '../process/ProcessConfig.ts';
 import { StdioTransport } from '../transport/StdioTransport.ts';
-import { tokens } from '../di/tokens.ts';
+import { tokens } from '../../di/tokens.ts';
 import {
 	ConfigureParams,
 	ConfigureResult,
@@ -19,8 +19,7 @@ import {
  * as `configure`, `discover` and `mutationTest`.  It is similar to the
  * `MutationServer` class in the VSCode plugin but removed VSCode concepts
  * like workspace folders.  The server requests are defined by the
- * Mutation Server Protocol (MSP); you can extend this class with more
- * methods depending on the commands you need.
+ * Mutation Server Protocol (MSP).
  */
 export class StrykerServer {
 	static inject = [

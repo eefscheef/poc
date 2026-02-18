@@ -1,9 +1,7 @@
 /*
- * Define tokens for the DI system.  Each key here represents a named
+ * Tokens for the DI system.  Each key here represents a named
  * dependency; the values are literal strings used by typed‑inject to map
- * constructor parameters to concrete implementations.  See the usage
- * example in the typed‑inject README where tokens like `'logger'` and
- * `'httpClient'` are used.
+ * constructor parameters to concrete implementations.
  */
 export const tokens = {
 	logger: 'logger',
@@ -11,4 +9,5 @@ export const tokens = {
 	process: 'process',
 	transport: 'transport',
 	mcpServer: 'mcpServer',
+	strykerServer: 'strykerServer',
 } as const;
