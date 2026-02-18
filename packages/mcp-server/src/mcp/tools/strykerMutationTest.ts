@@ -7,12 +7,27 @@ import type {
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import { MutantResult, MutationTestParams, MutationTestResult } from 'mutation-server-protocol';
 import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
-import { calculateMutationTestMetrics } from 'mutation-testing-metrics';
+import { calculateMutationTestMetrics, Metrics } from 'mutation-testing-metrics';
 import type { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 import { Logger } from '../../logging/Logger.ts';
 import { tokens } from '../../di/tokens.ts';
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+
+/**
+ * Cherry-picked set of mutation testing metrics. We emit only the most relevant
+ * metrics to save tokens.
+ */
+type AgentMutationMetrics = Pick<
+	Metrics,
+	| 'mutationScore'
+	| 'mutationScoreBasedOnCoveredCode'
+	| 'survived'
+	| 'noCoverage'
+	| 'totalMutants'
+	| 'totalCovered'
+>;
+
 export class StrykerMutationTestTool {
 	static inject = [tokens.mcpServer, tokens.strykerServer, tokens.logger] as const;
 
@@ -48,10 +63,10 @@ export class StrykerMutationTestTool {
 				extra,
 			);
 
-			const metrics = this.calculateMetrics(mspResult);
+			const plaintextMetrics = this.formatMetricsPlainText(this.calculateMetrics(mspResult));
 			const filteredResult = this.filterUndetectedMutants(mspResult);
 
-			return this.successResult(metrics, filteredResult);
+			return this.successResult(plaintextMetrics, filteredResult);
 		} catch (err) {
 			return this.errorResult(err);
 		}
@@ -145,7 +160,7 @@ export class StrykerMutationTestTool {
 		return filePath.endsWith('.ts') || filePath.endsWith('.tsx') ? 'typescript' : 'javascript';
 	}
 
-	private calculateMetrics(mspResult: MutationTestResult) {
+	private calculateMetrics(mspResult: MutationTestResult): AgentMutationMetrics {
 		const reportSchemaResult: ReportSchemaMutationTestResult = {
 			schemaVersion: '1',
 			thresholds: { high: 80, low: 60 },
@@ -161,7 +176,21 @@ export class StrykerMutationTestTool {
 			),
 		};
 
-		return calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
+		const fullMetrics =
+			calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
+
+		const agentMetrics: AgentMutationMetrics = {
+			mutationScore: Number(fullMetrics.mutationScore.toFixed(2)),
+			mutationScoreBasedOnCoveredCode: Number(
+				fullMetrics.mutationScoreBasedOnCoveredCode.toFixed(2),
+			),
+			survived: fullMetrics.survived,
+			noCoverage: fullMetrics.noCoverage,
+			totalMutants: fullMetrics.totalMutants,
+			totalCovered: fullMetrics.totalCovered,
+		};
+
+		return agentMetrics;
 	}
 
 	/** ---------- Filtering ---------- */
@@ -180,6 +209,19 @@ export class StrykerMutationTestTool {
 				{},
 			),
 		};
+	}
+
+	/** ---------- Formatting ---------- */
+
+	private formatMetricsPlainText(m: AgentMutationMetrics): string {
+		return [
+			`Mutation score: ${m.mutationScore}%`,
+			`Score (covered code): ${m.mutationScoreBasedOnCoveredCode}%`,
+			`Survived: ${m.survived}`,
+			`No coverage: ${m.noCoverage}`,
+			`Total mutants: ${m.totalMutants}`,
+			`Covered mutants: ${m.totalCovered}`,
+		].join('\n');
 	}
 
 	/** ---------- Results ---------- */
