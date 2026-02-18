@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import spawn from 'cross-spawn';
+import { spawn } from 'cross-spawn';
 import type { ChildProcess } from 'child_process';
-import { Logger } from '../logging/Logger.ts';
+import { Logger } from '../../logging/Logger.ts';
 import { ProcessConfig } from './ProcessConfig.ts';
-import { tokens } from '../di/tokens.ts';
+import { tokens } from '../../di/tokens.ts';
 
 export class Process extends EventEmitter {
 	static inject = [tokens.processConfig, tokens.logger] as const;

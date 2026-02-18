@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { StrykerServer } from '../stryker/server/StrykerServer.ts';
 import { ConfigureParams, ConfigureResult } from 'mutation-server-protocol';
+import { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 
 export function registerStrykerConfigure(mcpServer: McpServer, strykerServer: StrykerServer) {
 	mcpServer.registerTool(

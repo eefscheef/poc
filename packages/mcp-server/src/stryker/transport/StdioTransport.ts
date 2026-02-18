@@ -1,7 +1,7 @@
 import { BaseTransport } from './BaseTransport.ts';
-import { Logger } from '../logging/Logger.ts';
+import { Logger } from '../../logging/Logger.ts';
 import { Process } from '../process/Process.ts';
-import { tokens } from '../di/tokens.ts';
+import { tokens } from '../../di/tokens.ts';
 
 /**
  * StdioTransport reads and writes JSON‑RPC over stdio.  It depends on

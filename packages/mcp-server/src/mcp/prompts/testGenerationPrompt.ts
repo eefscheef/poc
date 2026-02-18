@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
 import { PromptMessage } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
+import { tokens } from '../../di/tokens.ts';
 
 // Zod schema for the prompt arguments
 const iterativeTestArgsSchema = z.object({
@@ -13,6 +14,8 @@ const iterativeTestArgsSchema = z.object({
 		.default(4)
 		.describe('Maximum number of mutation test iterations'),
 });
+
+registerTestGenerationPrompt.inject = [tokens.mcpServer] as const;
 
 export function registerTestGenerationPrompt(mcpServer: McpServer) {
 	mcpServer.registerPrompt(
