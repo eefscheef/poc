@@ -21,7 +21,7 @@ export function createMCPConfig(projectDirectory: string, monorepoRoot: string):
 	return {
 		stryker: {
 			command: 'node',
-			args: [mcpServerPath],
+			args: [mcpServerPath, '-d', projectDirectory],
 		},
 		filesystem: {
 			command: 'npx',
