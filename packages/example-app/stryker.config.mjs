@@ -15,6 +15,7 @@ export default {
 			testEnvironment: 'node',
 		},
 	},
+	incremental: true, // only test mutants relevant to changed files
 	testRunnerNodeArgs: ['--experimental-vm-modules'],
-	tempDirName: 'stryker-tmp', // avoid hidden temp dirs
+	tempDirName: '.stryker-tmp', // avoid hidden temp dirs
 };
