@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
 
 import { Logger } from './logging/Logger.ts';
-import { createApp } from './di/createServers.ts';
+import { createServers } from './di/createServers.ts';
 
 const logger = new Logger('MCP-Server');
 
@@ -52,7 +52,7 @@ async function main() {
 
 	logger.info(`Starting with projectDir="${projectDir}" and configFilePath="${configFilePath}"`);
 
-	const { mcpServer, strykerServer } = createApp(logger, {
+	const { mcpServer, strykerServer } = createServers(logger, {
 		path: 'npx',
 		args: ['stryker', 'serve', 'stdio'],
 		projectDir: projectDir,

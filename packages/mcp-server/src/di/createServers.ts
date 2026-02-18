@@ -10,7 +10,7 @@ import { StrykerServer } from '../stryker/server/StrykerServer.ts';
 import { registerStrykerMutationTest } from '../mcp/tools/strykerMutationTest.ts';
 import { registerTestGenerationPrompt } from '../mcp/prompts/testGenerationPrompt.ts';
 
-export function createApp(logger: Logger, config: ProcessConfig) {
+export function createServers(logger: Logger, config: ProcessConfig) {
 	const mcpServer = new McpServer({ name: 'stryker-mcp', version: '0.1.0' });
 
 	const injector = createInjector()
