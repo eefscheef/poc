@@ -1,98 +1,120 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { DiscoverParams, DiscoverResult } from 'mutation-server-protocol';
-import { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 
-export function registerStrykerDiscover(mcpServer: McpServer, strykerServer: StrykerServer) {
-	mcpServer.registerTool(
-		'strykerDiscover',
-		{
-			inputSchema: DiscoverParams.shape,
-			outputSchema: DiscoverResult.shape,
-		},
-		(rawInput) => strykerDiscoverHandler(rawInput, strykerServer),
-	);
-}
+import { StrykerServer } from '../../stryker/server/StrykerServer.js';
+import { Logger } from '../../logging/Logger.js';
+import { tokens } from '../../di/tokens.js';
 
-async function strykerDiscoverHandler(
-	args: DiscoverParams,
-	strykerServer: StrykerServer,
-): Promise<CallToolResult> {
-	try {
-		console.error(`[strykerDiscover] Received request with input: ${JSON.stringify(args)}`);
-		if (!strykerServer.isInitialized()) {
+export class StrykerDiscoverTool {
+	static inject = [tokens.mcpServer, tokens.strykerServer, tokens.logger] as const;
+
+	constructor(
+		private readonly mcpServer: McpServer,
+		private readonly strykerServer: StrykerServer,
+		private readonly logger: Logger,
+	) {}
+
+	register() {
+		this.mcpServer.registerTool(
+			'strykerDiscover',
+			{
+				inputSchema: DiscoverParams.shape,
+				outputSchema: DiscoverResult.shape,
+			},
+			(rawInput) => this.handle(rawInput),
+		);
+	}
+
+	private async handle(args: DiscoverParams): Promise<CallToolResult> {
+		try {
+			this.logger.info(`[strykerDiscover] Received request: ${JSON.stringify(args)}`);
+
+			if (!this.strykerServer.isInitialized()) {
+				return this.notInitializedResult();
+			}
+
+			this.logFileSelection(args);
+
+			this.logger.info(
+				`[strykerDiscover] Calling strykerServer.discover with params: ${JSON.stringify(args)}`,
+			);
+
+			const discovery = await this.strykerServer.discover(args);
+
+			this.logger.info('[strykerDiscover] Discovery completed successfully');
+
+			const summary = this.buildSummary(discovery);
+			this.logger.info(
+				`[strykerDiscover] ${summary.split('\n')[0]}`, // first line only
+			);
+
 			return {
-				content: [
-					{
-						type: 'text',
-						text: 'Stryker server has not started. Please call `strykerStart` first.',
-					},
-				],
-				isError: true,
+				content: [{ type: 'text', text: summary }],
+				structuredContent: discovery,
 			};
+		} catch (err) {
+			return this.errorResult(err);
 		}
-		if (args.files) {
-			console.error(
+	}
+
+	private logFileSelection(args: DiscoverParams) {
+		if (args.files?.length) {
+			this.logger.info(
 				`[strykerDiscover] Processing ${args.files.length} file path(s)/pattern(s)`,
 			);
-			args.files.forEach((file) => {
-				console.error(`[strykerDiscover] Path/pattern: "${file.path}"`);
-			});
+			for (const file of args.files) {
+				this.logger.info(`[strykerDiscover] Path/pattern: "${file.path}"`);
+			}
 		} else {
-			console.error(
-				`[strykerDiscover] No files specified, discovering all mutants in project`,
+			this.logger.info(
+				'[strykerDiscover] No files specified, discovering all mutants in project',
 			);
 		}
+	}
 
-		console.error(
-			`[strykerDiscover] Calling strykerServer.discover with params: ${JSON.stringify(args)}`,
-		);
-		const discovery: DiscoverResult = await strykerServer.discover(args);
-		console.error(`[strykerDiscover] Discovery completed successfully`);
+	private buildSummary(discovery: DiscoverResult): string {
+		const fileEntries = Object.entries(discovery.files);
+		const fileCount = fileEntries.length;
 
-		// Format the discovery result as readable text
-		const fileCount = Object.keys(discovery.files).length;
 		let totalMutants = 0;
 		const fileDetails: string[] = [];
 
-		for (const [filePath, fileData] of Object.entries(discovery.files)) {
+		for (const [filePath, fileData] of fileEntries) {
 			const mutantCount = fileData.mutants.length;
 			totalMutants += mutantCount;
 			fileDetails.push(`  ${filePath}: ${mutantCount} mutant(s)`);
 		}
 
-		console.error(`[strykerDiscover] Found ${totalMutants} mutant(s) in ${fileCount} file(s)`);
+		return `Discovered ${totalMutants} mutant(s) in ${fileCount} file(s)\n\n${fileDetails.join('\n')}`;
+	}
 
-		const summary = `Discovered ${totalMutants} mutant(s) in ${fileCount} file(s)\n\n${fileDetails.join('\n')}`;
-
+	private notInitializedResult(): CallToolResult {
 		return {
 			content: [
 				{
 					type: 'text',
-					text: summary,
+					text: 'Stryker server has not started. Please call `strykerStart` first.',
 				},
 			],
-			structuredContent: discovery,
+			isError: true,
 		};
-	} catch (err: Error | unknown) {
-		console.error(`[strykerDiscover] Error occurred: ${err}`);
+	}
 
+	private errorResult(err: unknown): CallToolResult {
 		const errorMsg = err instanceof Error ? err.message : String(err);
 		const errorStack = err instanceof Error ? err.stack : undefined;
 
+		this.logger.error(`[strykerDiscover] Error occurred: ${errorMsg}`);
 		if (errorStack) {
-			console.error(`[strykerDiscover] Stack trace: ${errorStack}`);
+			this.logger.error(`[strykerDiscover] Stack trace: ${errorStack}`);
 		}
 
+		// Keep response reasonably sized
 		const truncatedMsg = errorMsg.length > 1200 ? errorMsg.slice(-1200) : errorMsg;
 
 		return {
-			content: [
-				{
-					type: 'text',
-					text: `Error discovering mutants: ${truncatedMsg.trim()}`,
-				},
-			],
+			content: [{ type: 'text', text: `Error discovering mutants: ${truncatedMsg.trim()}` }],
 			isError: true,
 		};
 	}
