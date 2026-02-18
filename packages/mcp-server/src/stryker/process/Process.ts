@@ -18,7 +18,11 @@ export class Process extends EventEmitter {
 	}
 
 	async init(): Promise<void> {
-		const { path, args = ['stryker', 'serve', 'stdio'], cwd = process.cwd() } = this.config;
+		const {
+			path,
+			args = ['stryker', 'serve', 'stdio'],
+			projectDir: cwd = process.cwd(),
+		} = this.config;
 
 		this.logger.info(`Spawning server: ${path} ${args.join(' ')} (cwd=${cwd})`);
 
