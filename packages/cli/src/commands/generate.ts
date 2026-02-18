@@ -72,12 +72,24 @@ export async function generateTests(options: GenerateOptions) {
 			return;
 		}
 
+		// Disallow tools that are unlikely to be useful to tokens
+		const disallowedTools = [
+			'execute_command',
+			'list_directory_with_sizes',
+			'get_file_info',
+			'move_file',
+			'read_media_file',
+			'directory_tree',
+			// 'strykerPrompt', // Prompt doesn't get filtered by disallowedTools. TODO: explore if beneficial to move this to tool.
+		];
+
 		agent = new MCPAgent({
 			llm,
 			client,
 			maxSteps: 1000,
 			verbose: ctx.verbose,
 			memoryEnabled: true,
+			disallowedTools,
 		});
 		await agent.initialize();
 		logger.info('Agent started');
