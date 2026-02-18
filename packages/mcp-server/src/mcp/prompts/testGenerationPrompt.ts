@@ -38,24 +38,31 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 
 DIR=${projectDirectory}; MAX_ITERS=${maxIterations}
 
-Tools: strykerStart({cwd, configFilePath}), strykerDiscover, strykerMutationTest.
+Tools: strykerMutationTest.
 
 Rules:
-- Start Stryker server only if not already running; never restart a running server.
-- Read DIR/stryker.config.mjs to choose the project's test runner; if no tests exist, use Mocha.
-- Target undetected mutants (Stryker: Survived + NoCoverage). Timeouts count as detected; runtime/compile errors are not scored.
+- All mutants returned by strykerMutationTest are undetected (Stryker: Survived + NoCoverage).
+- Every returned mutant MUST be investigated and explicitly addressed.
+- For each mutant, either:
+  (a) add/repair tests to kill it, or
+  (b) justify why it cannot reasonably be killed (e.g. equivalent mutant).
+- Do NOT ignore any returned mutant.
+- Timeouts count as detected; runtime/compile errors are not scored.
 - Stop early if mutation score gain <5% vs previous run.
 
 Workflow:
-1) Ensure server running (only if needed): strykerStart(cwd=DIR, configFilePath=DIR/stryker.config.mjs).
-2) Mutants: M = strykerDiscover().
-3) Baseline: R = strykerMutationTest(M).
-4) Loop ≤ MAX_ITERS:
-   - Add focused tests to kill undetected mutants in R (edge cases, boundary conditions, mutation-specific assertions).
-   - R = strykerMutationTest(remaining-undetected-mutants if supported; else M).
-   - Stop if no undetected mutants remain or gain <5%.
+1) Baseline: R = strykerMutationTest().
+2) Loop ≤ MAX_ITERS:
+   - For each mutant in R, design focused tests targeting the mutation (edge cases, boundary conditions, mutation-specific assertions).
+   - Apply test changes.
+   - R = strykerMutationTest(remaining-undetected-mutants if supported; else full run).
+   - Stop if no mutants are returned or gain <5%.
 
-Final report: final score, iterations, key test changes, remaining undetected mutants + rationale.
+Final report:
+- Final mutation score.
+- Number of iterations.
+- Summary of key test changes.
+- For every remaining mutant: explanation why it remains undetected.
 `,
 					},
 				},
