@@ -2,9 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { DiscoverParams, DiscoverResult } from 'mutation-server-protocol';
 
-import { StrykerServer } from '../../stryker/server/StrykerServer.js';
-import { Logger } from '../../logging/Logger.js';
-import { tokens } from '../../di/tokens.js';
+import { StrykerServer } from '../../stryker/server/StrykerServer.ts';
+import { Logger } from '../../logging/Logger.ts';
+import { tokens } from '../../di/tokens.ts';
 
 export class StrykerDiscoverTool {
 	static inject = [tokens.mcpServer, tokens.strykerServer, tokens.logger] as const;
