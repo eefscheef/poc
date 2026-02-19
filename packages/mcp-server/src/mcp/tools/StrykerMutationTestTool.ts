@@ -1,40 +1,49 @@
+import { readFile } from 'node:fs/promises';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type {
-	CallToolResult,
-	ServerNotification,
-	ServerRequest,
-} from '@modelcontextprotocol/sdk/types.js';
-import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import { MutantResult, MutationTestParams, MutationTestResult } from 'mutation-server-protocol';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { MutationTestParams, MutationTestResult, MutantResult } from 'mutation-server-protocol';
 import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
 import { calculateMutationTestMetrics, Metrics } from 'mutation-testing-metrics';
+
 import type { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 import { Logger } from '../../logging/Logger.ts';
 import { tokens } from '../../di/tokens.ts';
+import type { MutantStore } from '../mutant-cache/MutantStore.ts';
+import {
+	MutationTestOverviewSchema,
+	type MutationTestOverview,
+} from '../schemas/MutationTestOverviewSchema.ts';
+import { Extra } from './mcpTypes.ts';
+import { SourceSnippet } from '../schemas/MutantDetailsSchema.ts';
 
-type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
-
-/**
- * Cherry-picked set of mutation testing metrics. We emit only the most relevant
- * metrics to save tokens.
- */
 type AgentMutationMetrics = Pick<
 	Metrics,
 	| 'mutationScore'
 	| 'mutationScoreBasedOnCoveredCode'
+	| 'totalMutants'
+	| 'totalDetected'
+	| 'totalUndetected'
 	| 'survived'
 	| 'noCoverage'
-	| 'totalMutants'
-	| 'totalCovered'
 >;
 
+type UndetectedStatus = 'Survived' | 'NoCoverage';
+
 export class StrykerMutationTestTool {
-	static inject = [tokens.mcpServer, tokens.strykerServer, tokens.logger] as const;
+	private nextRunId = 0;
+
+	static inject = [
+		tokens.mcpServer,
+		tokens.strykerServer,
+		tokens.logger,
+		tokens.mutantStore,
+	] as const;
 
 	constructor(
 		private readonly mcpServer: McpServer,
 		private readonly strykerServer: StrykerServer,
 		private readonly logger: Logger,
+		private readonly mutantStore: MutantStore,
 	) {}
 
 	register() {
@@ -42,7 +51,7 @@ export class StrykerMutationTestTool {
 			'strykerMutationTest',
 			{
 				inputSchema: MutationTestParams.shape,
-				outputSchema: MutationTestResult.shape,
+				outputSchema: MutationTestOverviewSchema,
 			},
 			(rawInput, extra) => this.handle(rawInput, extra),
 		);
@@ -56,19 +65,176 @@ export class StrykerMutationTestTool {
 
 		try {
 			const observable = this.strykerServer.mutationTest(args);
-
 			const mspResult = await this.collectMspResultWithProgress(
 				observable,
 				progressToken,
 				extra,
 			);
 
-			const plaintextMetrics = this.formatMetricsPlainText(this.calculateMetrics(mspResult));
-			const filteredResult = this.filterUndetectedMutants(mspResult);
+			const runId = this.nextRunId++;
 
-			return this.successResult(plaintextMetrics, filteredResult);
+			// Store FULL result for later drill-down via strykerMutantDetails
+			this.mutantStore.put(runId, mspResult);
+
+			const metrics = this.calculateMetrics(mspResult);
+
+			// Small overview in structured content
+			const overview = this.buildOverview(runId, mspResult);
+
+			// Text-first output (includes snippets by default, bounded)
+			const text = await this.formatOverviewText(runId, metrics, mspResult);
+
+			return {
+				content: [{ type: 'text', text }],
+				structuredContent: { overview },
+				// structuredContent: {},
+			};
 		} catch (err) {
 			return this.errorResult(err);
+		}
+	}
+	/** ---------- Minimal structured content ---------- */
+
+	private buildOverview(runId: number, mspResult: MutationTestResult): MutationTestOverview {
+		const undetected: MutationTestOverview['undetected'] = [];
+
+		for (const [filePath, fileResult] of Object.entries(mspResult.files ?? {})) {
+			for (const m of fileResult.mutants ?? []) {
+				if (m.status === 'Survived' || m.status === 'NoCoverage') {
+					undetected.push({
+						filePath,
+						id: m.id,
+						status: m.status,
+					});
+				}
+			}
+		}
+
+		return { runId, undetected };
+	}
+
+	/** ---------- Text-first formatting (bounded) ---------- */
+
+	private async formatOverviewText(
+		runId: number,
+		metrics: AgentMutationMetrics,
+		mspResult: MutationTestResult,
+	): Promise<string> {
+		const metricsText = this.formatMetricsPlainText(metrics);
+
+		// Collect undetected mutants
+		const undetected: {
+			filePath: string;
+			mutant: MutantResult;
+			status: UndetectedStatus;
+		}[] = [];
+
+		for (const [filePath, fileResult] of Object.entries(mspResult.files ?? {})) {
+			for (const mutant of fileResult.mutants ?? []) {
+				if (mutant.status === 'Survived' || mutant.status === 'NoCoverage') {
+					undetected.push({ filePath, mutant, status: mutant.status });
+				}
+			}
+		}
+
+		// NoCoverage first, then Survived
+		undetected.sort((a, b) => {
+			if (a.status === b.status) return 0;
+			return a.status === 'NoCoverage' ? -1 : 1;
+		});
+
+		const maxMutantsShown = 10;
+		const snippetContextLines = 3;
+		const maxTotalSnippetChars = 2000;
+
+		let usedSnippetChars = 0;
+
+		const lines: string[] = [];
+		lines.push(metricsText);
+		lines.push(`RunId: ${runId}`);
+		lines.push('');
+
+		if (undetected.length === 0) {
+			lines.push('✅ No undetected mutants (no Survived / NoCoverage).');
+			return lines.join('\n');
+		}
+
+		lines.push(`Undetected mutants: ${undetected.length}`);
+		lines.push('');
+
+		const shown = undetected.slice(0, maxMutantsShown);
+
+		for (const { filePath, mutant, status } of shown) {
+			lines.push(
+				`- [${status}] ${filePath}:${mutant.location.start.line}:${mutant.location.start.column} ` +
+					`(id=${mutant.id}, mutator=${mutant.mutatorName})`,
+			);
+
+			// Snippet enabled by default, but bounded
+			if (usedSnippetChars < maxTotalSnippetChars) {
+				const snippet = await this.readSnippetSafe(filePath, mutant, snippetContextLines);
+				if (snippet) {
+					const snippetText =
+						`  Snippet (L${snippet.startLine}-L${snippet.endLine}):\n` +
+						snippet.text
+							.split('\n')
+							.map((l) => `    ${l}`)
+							.join('\n');
+
+					const remaining = maxTotalSnippetChars - usedSnippetChars;
+					const clipped =
+						snippetText.length > remaining
+							? snippetText.slice(0, remaining - 1) + '…'
+							: snippetText;
+
+					usedSnippetChars += clipped.length;
+					lines.push(clipped);
+				}
+			}
+
+			lines.push('');
+		}
+
+		const remainingCount = undetected.length - shown.length;
+		if (remainingCount > 0) {
+			lines.push(`…and ${remainingCount} more undetected mutants not shown.`);
+			lines.push('');
+		}
+
+		lines.push(
+			`To drill down: call strykerMutantDetails with this runId and a list of { filePath, id }.`,
+		);
+
+		return lines.join('\n');
+	}
+
+	private async readSnippetSafe(
+		filePath: string,
+		mutant: MutantResult,
+		contextLines: number,
+	): Promise<SourceSnippet | undefined> {
+		try {
+			const text = await readFile(filePath, 'utf8');
+			const lines = text.split(/\r?\n/);
+
+			if (lines.length === 0) return undefined;
+
+			const mutantStart = Math.max(1, mutant.location.start.line);
+			const mutantEnd = Math.min(lines.length, mutant.location.end.line);
+
+			const startLine = Math.max(1, mutantStart - contextLines);
+			const endLine = Math.min(lines.length, mutantEnd + contextLines);
+
+			if (startLine > endLine) {
+				return { startLine, endLine, text: '[Invalid mutant location range]' };
+			}
+
+			const snippet = lines.slice(startLine - 1, endLine).join('\n');
+			return { startLine, endLine, text: snippet };
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.logger.warn(`Failed to read snippet for ${filePath}: ${msg}`);
+			return undefined;
 		}
 	}
 
@@ -81,11 +247,7 @@ export class StrykerMutationTestTool {
 	}
 
 	private async notifyProgress(extra: Extra, progressToken: unknown, progressEventCount: number) {
-		if (!(typeof progressToken === 'string' || typeof progressToken === 'number')) {
-			this.logger.info('No valid progressToken - skipping MCP progress notification');
-			return;
-		}
-
+		if (!(typeof progressToken === 'string' || typeof progressToken === 'number')) return;
 		try {
 			await extra.sendNotification({
 				method: 'notifications/progress',
@@ -101,8 +263,6 @@ export class StrykerMutationTestTool {
 			);
 		}
 	}
-
-	/** ---------- Observable collection / merging ---------- */
 
 	private async collectMspResultWithProgress(
 		observable: ReturnType<StrykerServer['mutationTest']>,
@@ -141,14 +301,11 @@ export class StrykerMutationTestTool {
 		return mspResult;
 	}
 
-	// Assumes Stryker Server emits unique mutants per progress update.
-	// If this is wrong (e.g., same id updated later), switch to overwrite-by-id merge logic.
 	private mergeProgressIntoResult(
 		aggregateResult: MutationTestResult,
 		progress: MutationTestResult,
 	) {
 		if (!progress.files) return;
-
 		for (const [filePath, { mutants }] of Object.entries(progress.files)) {
 			(aggregateResult.files[filePath] ??= { mutants: [] }).mutants.push(...mutants);
 		}
@@ -179,48 +336,28 @@ export class StrykerMutationTestTool {
 		const fullMetrics =
 			calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
 
-		const agentMetrics: AgentMutationMetrics = {
+		return {
 			mutationScore: Number(fullMetrics.mutationScore.toFixed(2)),
 			mutationScoreBasedOnCoveredCode: Number(
 				fullMetrics.mutationScoreBasedOnCoveredCode.toFixed(2),
 			),
 			survived: fullMetrics.survived,
 			noCoverage: fullMetrics.noCoverage,
+			totalDetected: fullMetrics.totalDetected,
+			totalUndetected: fullMetrics.totalUndetected,
 			totalMutants: fullMetrics.totalMutants,
-			totalCovered: fullMetrics.totalCovered,
-		};
-
-		return agentMetrics;
-	}
-
-	/** ---------- Filtering ---------- */
-
-	private filterUndetectedMutants(mspResult: MutationTestResult): MutationTestResult {
-		const isUndetected = (m: MutantResult) =>
-			m.status === 'Survived' || m.status === 'NoCoverage';
-
-		return {
-			files: Object.entries(mspResult.files).reduce<MutationTestResult['files']>(
-				(acc, [filePath, fileResult]) => {
-					const undetected = fileResult.mutants.filter(isUndetected);
-					if (undetected.length) acc[filePath] = { mutants: undetected };
-					return acc;
-				},
-				{},
-			),
 		};
 	}
-
-	/** ---------- Formatting ---------- */
 
 	private formatMetricsPlainText(m: AgentMutationMetrics): string {
 		return [
 			`Mutation score: ${m.mutationScore}%`,
 			`Score (covered code): ${m.mutationScoreBasedOnCoveredCode}%`,
 			`Survived: ${m.survived}`,
+			`Detected mutants: ${m.totalDetected}`,
+			`Undetected mutants: ${m.totalUndetected}`,
 			`No coverage: ${m.noCoverage}`,
 			`Total mutants: ${m.totalMutants}`,
-			`Covered mutants: ${m.totalCovered}`,
 		].join('\n');
 	}
 
@@ -235,13 +372,6 @@ export class StrykerMutationTestTool {
 				},
 			],
 			isError: true,
-		};
-	}
-
-	private successResult(metrics: unknown, filtered: MutationTestResult): CallToolResult {
-		return {
-			content: [{ type: 'text', text: JSON.stringify(metrics, null, 2) }],
-			structuredContent: filtered,
 		};
 	}
 
