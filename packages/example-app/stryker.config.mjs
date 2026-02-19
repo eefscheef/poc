@@ -4,7 +4,6 @@ export default {
 	packageManager: 'npm',
 	testRunner: 'jest',
 	mutate: ['src/**/*.js'], // mutate your source
-	reporters: ['json'],
 	coverageAnalysis: 'perTest',
 	jsonReporter: { fileName: 'stryker-report.json' },
 	jest: {
@@ -15,7 +14,7 @@ export default {
 			testEnvironment: 'node',
 		},
 	},
-	incremental: true, // only test mutants relevant to changed files
+	incremental: false, // only test mutants relevant to changed files
 	testRunnerNodeArgs: ['--experimental-vm-modules'],
 	tempDirName: '.stryker-tmp', // avoid hidden temp dirs
 };
