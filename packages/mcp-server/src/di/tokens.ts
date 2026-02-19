@@ -10,4 +10,6 @@ export const tokens = {
 	transport: 'transport',
 	mcpServer: 'mcpServer',
 	strykerServer: 'strykerServer',
+	mutantStore: 'mutantStore',
+	projectDir: 'projectDir',
 } as const;

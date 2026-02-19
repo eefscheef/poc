@@ -7,8 +7,10 @@ import { Process } from '../stryker/process/Process.ts';
 import { StdioTransport } from '../stryker/transport/StdioTransport.ts';
 import { StrykerServer } from '../stryker/server/StrykerServer.ts';
 
-import { StrykerMutationTestTool } from '../mcp/tools/strykerMutationTest.ts';
+import { StrykerMutationTestTool } from '../mcp/tools/StrykerMutationTestTool.ts';
 import { registerTestGenerationPrompt } from '../mcp/prompts/testGenerationPrompt.ts';
+import { InMemoryMutantStore } from '../mcp/mutant-cache/InMemoryMutantStore.ts';
+import { StrykerMutantDetailsTool } from '../mcp/tools/StrykerMutantDetailsTool.ts';
 
 export function createServers(logger: Logger, config: ProcessConfig) {
 	const mcpServer = new McpServer({ name: 'stryker-mcp', version: '0.1.0' });
@@ -19,11 +21,14 @@ export function createServers(logger: Logger, config: ProcessConfig) {
 		.provideClass(tokens.process, Process)
 		.provideClass(tokens.transport, StdioTransport)
 		.provideClass(tokens.strykerServer, StrykerServer)
-		.provideValue(tokens.mcpServer, mcpServer);
+		.provideClass(tokens.mutantStore, InMemoryMutantStore)
+		.provideValue(tokens.mcpServer, mcpServer)
+		.provideValue(tokens.projectDir, config.projectDir);
 
 	const strykerServer = injector.resolve(tokens.strykerServer);
 
 	injector.injectClass(StrykerMutationTestTool).register();
+	injector.injectClass(StrykerMutantDetailsTool).register();
 	// injector.injectClass(StrykerReadJsonTool).register();
 	// injector.injectClass(StrykerConfigureTool).register();
 	// injector.injectClass(StrykerDiscoverTool).register();
