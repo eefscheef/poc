@@ -10,6 +10,9 @@ export class Logger {
 	info(message: string) {
 		console.error(`[INFO] [${this.prefix}] ${message}`);
 	}
+	warn(message: string) {
+		console.error(`[WARN] [${this.prefix}] ${message}`);
+	}
 	error(message: string) {
 		console.error(`[ERROR] [${this.prefix}] ${message}`);
 	}
