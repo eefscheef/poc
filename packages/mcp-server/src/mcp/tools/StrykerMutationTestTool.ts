@@ -1,9 +1,12 @@
-import { readFile } from 'node:fs/promises';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { MutationTestParams, MutationTestResult, MutantResult } from 'mutation-server-protocol';
+import type {
+	MutationTestParams,
+	MutationTestResult,
+	MutantResult,
+} from 'mutation-server-protocol';
 import type { MutationTestResult as ReportSchemaMutationTestResult } from 'mutation-testing-report-schema';
-import { calculateMutationTestMetrics, Metrics } from 'mutation-testing-metrics';
+import { calculateMutationTestMetrics, type Metrics } from 'mutation-testing-metrics';
 
 import type { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 import { Logger } from '../../logging/Logger.ts';
@@ -11,10 +14,13 @@ import { tokens } from '../../di/tokens.ts';
 import type { MutantStore } from '../mutant-cache/MutantStore.ts';
 import {
 	MutationTestOverviewSchema,
+	MutationTestRequestSchema,
+	type MutationTestRequest,
 	type MutationTestOverview,
-} from '../schemas/MutationTestOverviewSchema.ts';
-import { Extra } from './mcpTypes.ts';
-import { SourceSnippet } from '../schemas/MutantDetailsSchema.ts';
+} from '../schemas/MutationTestSchema.ts';
+import type { Extra } from '../util/mcpTypes.ts';
+import { toMutationTestParams } from '../util/toMutationTestParams.ts';
+import { SourceSnippetReader } from '../util/SourceSnippetReader.ts';
 
 type AgentMutationMetrics = Pick<
 	Metrics,
@@ -37,6 +43,7 @@ export class StrykerMutationTestTool {
 		tokens.strykerServer,
 		tokens.logger,
 		tokens.mutantStore,
+		tokens.projectDir,
 	] as const;
 
 	constructor(
@@ -44,21 +51,50 @@ export class StrykerMutationTestTool {
 		private readonly strykerServer: StrykerServer,
 		private readonly logger: Logger,
 		private readonly mutantStore: MutantStore,
-	) {}
+		private readonly projectDir: string,
+	) {
+		this.snippetReader = new SourceSnippetReader(this.projectDir, this.logger);
+	}
+	private readonly snippetReader: SourceSnippetReader;
 
 	register() {
 		this.mcpServer.registerTool(
 			'strykerMutationTest',
 			{
-				inputSchema: MutationTestParams.shape,
+				description:
+					'Runs Stryker mutation testing. Mode controls scope: ' +
+					'all (default), files (requires files), ' +
+					'survivors (requires runId, optional refs), mutants (requires runId and refs).',
+				inputSchema: MutationTestRequestSchema,
 				outputSchema: MutationTestOverviewSchema,
 			},
 			(rawInput, extra) => this.handle(rawInput, extra),
 		);
 	}
 
-	private async handle(args: MutationTestParams, extra: Extra): Promise<CallToolResult> {
+	private async handle(rawInput: unknown, extra: Extra): Promise<CallToolResult> {
 		if (!this.strykerServer.isInitialized()) return this.notInitializedResult();
+
+		const parsed = MutationTestRequestSchema.safeParse(rawInput ?? { mode: 'all' });
+		if (!parsed.success) {
+			return {
+				isError: true,
+				content: [{ type: 'text', text: parsed.error.message }],
+			};
+		}
+
+		const req: MutationTestRequest = parsed.data;
+
+		let args: MutationTestParams;
+		try {
+			args = toMutationTestParams(req, this.mutantStore);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return {
+				isError: true,
+				content: [{ type: 'text', text: msg }],
+			};
+		}
 
 		const progressToken = extra._meta?.progressToken;
 		this.logStart(progressToken, args);
@@ -77,17 +113,12 @@ export class StrykerMutationTestTool {
 			this.mutantStore.put(runId, mspResult);
 
 			const metrics = this.calculateMetrics(mspResult);
-
-			// Small overview in structured content
 			const overview = this.buildOverview(runId, mspResult);
-
-			// Text-first output (includes snippets by default, bounded)
 			const text = await this.formatOverviewText(runId, metrics, mspResult);
 
 			return {
 				content: [{ type: 'text', text }],
-				structuredContent: { overview },
-				// structuredContent: {},
+				structuredContent: overview,
 			};
 		} catch (err) {
 			return this.errorResult(err);
@@ -144,7 +175,7 @@ export class StrykerMutationTestTool {
 		});
 
 		const maxMutantsShown = 10;
-		const snippetContextLines = 3;
+		const snippetContextLines = 2;
 		const maxTotalSnippetChars = 2000;
 
 		let usedSnippetChars = 0;
@@ -155,7 +186,7 @@ export class StrykerMutationTestTool {
 		lines.push('');
 
 		if (undetected.length === 0) {
-			lines.push('✅ No undetected mutants (no Survived / NoCoverage).');
+			lines.push('No undetected mutants (no Survived / NoCoverage).');
 			return lines.join('\n');
 		}
 
@@ -172,7 +203,11 @@ export class StrykerMutationTestTool {
 
 			// Snippet enabled by default, but bounded
 			if (usedSnippetChars < maxTotalSnippetChars) {
-				const snippet = await this.readSnippetSafe(filePath, mutant, snippetContextLines);
+				const snippet = await this.snippetReader.readSnippet(
+					filePath,
+					mutant.location,
+					snippetContextLines,
+				);
 				if (snippet) {
 					const snippetText =
 						`  Snippet (L${snippet.startLine}-L${snippet.endLine}):\n` +
@@ -206,36 +241,6 @@ export class StrykerMutationTestTool {
 		);
 
 		return lines.join('\n');
-	}
-
-	private async readSnippetSafe(
-		filePath: string,
-		mutant: MutantResult,
-		contextLines: number,
-	): Promise<SourceSnippet | undefined> {
-		try {
-			const text = await readFile(filePath, 'utf8');
-			const lines = text.split(/\r?\n/);
-
-			if (lines.length === 0) return undefined;
-
-			const mutantStart = Math.max(1, mutant.location.start.line);
-			const mutantEnd = Math.min(lines.length, mutant.location.end.line);
-
-			const startLine = Math.max(1, mutantStart - contextLines);
-			const endLine = Math.min(lines.length, mutantEnd + contextLines);
-
-			if (startLine > endLine) {
-				return { startLine, endLine, text: '[Invalid mutant location range]' };
-			}
-
-			const snippet = lines.slice(startLine - 1, endLine).join('\n');
-			return { startLine, endLine, text: snippet };
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			this.logger.warn(`Failed to read snippet for ${filePath}: ${msg}`);
-			return undefined;
-		}
 	}
 
 	/** ---------- Logging / progress ---------- */

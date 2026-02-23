@@ -47,6 +47,20 @@ export class InMemoryMutantStore implements MutantStore {
 		return entry.mutantsByFile.get(ref.filePath)?.get(Number(ref.id));
 	}
 
+	getAll(runId: number): { filePath: string; mutant: MutantResult }[] | undefined {
+		const entry = this.runs.get(runId);
+		if (!entry) return undefined;
+
+		// Move accessed run to the end to mark it as most recently used
+		this.runs.delete(runId);
+		this.runs.set(runId, entry);
+
+		// Flatten all mutants from all files, preserving file path
+		return Array.from(entry.mutantsByFile.entries()).flatMap(([filePath, mutantsById]) =>
+			Array.from(mutantsById.values()).map((mutant) => ({ filePath, mutant })),
+		);
+	}
+
 	has(runId: number): boolean {
 		return this.runs.has(runId);
 	}
