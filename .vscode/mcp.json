@@ -8,6 +8,7 @@
 				"--workspace",
 				"mcp-server",
 				"mcp",
+				"--",
 				"-d",
 				"C:/Users/EverardV/Projects/poc/packages/example-app"
 			]
