@@ -41,19 +41,13 @@ We also store a [prompt](packages\mcp-server\src\prompts\testGenerationPrompt.ts
 
 ### cli
 
-This is where we tie an LLM agent to the MCP servers (Stryker, Filesystem, and eventually a custom built control flow MCP server). Currently, the full test generation/iteration loop is not working, so the expected behaviour can be demo'd with VS Code Copilot. The next section contains more details on how to do this.
+This is where we tie an LLM agent to the MCP servers (Stryker, Filesystem, and eventually a custom built control flow MCP server).
 
 ### example-app
 
 This is a simple JS project, which only exports the FizBuzz and isPrime functions, together with an existing test suite. There is an intentional gap: the isPrime test cases for n <= 1 are missing, resulting in a lower mutation score. For Copilot, addressing this gap shouldn't be a problem anyhow, but consider removing this section of the readme from the context before trying it out, because it can provide an unfair hint.
 
 ## Testing the project
-
-**Important note!! Even if the project is configured correctly, the CLI doesn't generate full test suites, instead the agent's token stream is cut off after 1000 tokens, and no test files are ever edited**
-
-I am still debugging the problem. If you want to get a feel for what is supposed to happen, you can run the Stryker MCP server with VSCode Copilot: Go to [.vscode/mcp.json](.vscode/mcp.json) and press 'start' above stryker-mcp-server. Next, use the built-in prompt through Copilot chat by typing `/mcp.stryker-mcp-server.strykerPrompt`
-
-You will be prompted for a projectDir, paste the absolute path to example-app in there. Next, enter your desired number of iterations (2 should be fine for example-app), and watch Copilot run mutation testing and close the intentional gap left in example-app's test suite.
 
 ### 1. Install & Build
 
