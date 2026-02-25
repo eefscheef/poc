@@ -4,8 +4,7 @@
 	"workspaces": [
 		"packages/example-app",
 		"packages/mcp-server",
-		"packages/cli",
-		"packages/plural"
+		"packages/cli"
 	],
 	"scripts": {
 		"build": "npm run build --workspaces --if-present",
