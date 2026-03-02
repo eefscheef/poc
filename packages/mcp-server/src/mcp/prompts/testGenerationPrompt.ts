@@ -52,7 +52,7 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 
 DIR=${projectDirectory}; MAX_ITERS=${maxIterations}; ${outputDirLine}
 
-Tools: strykerMutationTest.
+Tools: strykerStart, strykerMutationTest.
 
 Rules:
 - All mutants returned by strykerMutationTest are undetected (Stryker: Survived + NoCoverage).
@@ -66,8 +66,10 @@ Rules:
 - Stop early if mutation score gain <5% vs previous run.
 
 Workflow:
-1) Baseline: R = strykerMutationTest().
-2) Loop ≤ MAX_ITERS:
+1) Read the source files in DIR. Write an initial test suite covering observable behavior.
+2) Call strykerStart to start the mutation server.
+3) Baseline: R = strykerMutationTest().
+4) Loop ≤ MAX_ITERS:
    - For each mutant in R, design focused tests targeting the mutation (edge cases, boundary conditions, mutation-specific assertions).
    - Apply test changes.
    - R = strykerMutationTest(remaining-undetected-mutants if supported; else full run).

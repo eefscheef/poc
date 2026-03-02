@@ -1,22 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
-import path from 'node:path';
 import { StrykerServer } from '../../stryker/server/StrykerServer.ts';
 import { Logger } from '../../logging/Logger.ts';
 import { tokens } from '../../di/tokens.ts';
 
-const ZStartStrykerInput = z
-	.object({
-		cwd: z.string().min(1),
-		configFilePath: z.string().min(1),
-	})
-	.strict();
-
-export type StartStrykerInput = z.infer<typeof ZStartStrykerInput>;
-
 type StartResult =
-	| { status: 'started'; cwd: string; configFilePath: string }
+	| { status: 'started' }
 	| { status: 'already_running' }
 	| { status: 'error'; message: string };
 
@@ -33,38 +22,25 @@ export class StrykerStartTool {
 		this.mcpServer.registerTool(
 			'strykerStart',
 			{
-				description: 'Start Stryker mutation server (stdio) for a project. Idempotent.',
-				inputSchema: ZStartStrykerInput.shape,
+				description:
+					'Start the Stryker mutation server. Must be called before strykerMutationTest. ' +
+					'Uses the project directory and config file provided at MCP server launch. Idempotent.',
 			},
-			(input: StartStrykerInput) => this.handle(input),
+			() => this.handle(),
 		);
 	}
 
-	private async handle(input: StartStrykerInput): Promise<CallToolResult> {
+	private async handle(): Promise<CallToolResult> {
 		try {
 			if (this.strykerServer.isInitialized()) {
 				return this.successResult({ status: 'already_running' });
 			}
 
-			const cwd = path.resolve(input.cwd);
-			const configFilePath = path.resolve(input.configFilePath);
-
-			this.strykerServer.updateConfig({
-				path: 'npx',
-				args: ['stryker', 'serve', 'stdio'],
-				projectDir: cwd,
-				configFilePath,
-			});
-
 			await this.strykerServer.init();
 
-			this.logger.info(`Stryker started. cwd=${cwd}, configFilePath=${configFilePath}`);
+			this.logger.info('Stryker server started successfully.');
 
-			return this.successResult({
-				status: 'started',
-				cwd,
-				configFilePath,
-			});
+			return this.successResult({ status: 'started' });
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			this.logger.error(`Failed to start Stryker: ${message}`);
