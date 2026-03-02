@@ -13,6 +13,12 @@ const iterativeTestArgsSchema = z.object({
 		.optional()
 		.default(4)
 		.describe('Maximum number of mutation test iterations'),
+	outputDir: z
+		.string()
+		.optional()
+		.describe(
+			'Directory where the agent should write test files. If omitted, tests are co-located with source files.',
+		),
 });
 
 registerTestGenerationPrompt.inject = [tokens.mcpServer] as const;
@@ -28,7 +34,15 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 			argsSchema: iterativeTestArgsSchema.shape,
 		},
 		// The callback builds the messages that clients will retrieve
-		async ({ projectDirectory, maxIterations }) => {
+		async ({ projectDirectory, maxIterations, outputDir }) => {
+			const outputDirLine = outputDir
+				? `OUTPUT_DIR=${outputDir}`
+				: 'OUTPUT_DIR=<co-located with source files>';
+
+			const outputDirRules = outputDir
+				? `\n- Write ALL new test files into OUTPUT_DIR (${outputDir}). Do NOT place tests elsewhere.`
+				: '';
+
 			const messages: PromptMessage[] = [
 				{
 					role: 'user',
@@ -36,7 +50,7 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 						type: 'text',
 						text: `You generate/repair JS/TS unit tests to improve Stryker mutation score.
 
-DIR=${projectDirectory}; MAX_ITERS=${maxIterations}
+DIR=${projectDirectory}; MAX_ITERS=${maxIterations}; ${outputDirLine}
 
 Tools: strykerMutationTest.
 
@@ -47,6 +61,7 @@ Rules:
   (a) add/repair tests to kill it, or
   (b) justify why it cannot reasonably be killed (e.g. equivalent mutant).
 - Do NOT ignore any returned mutant.
+- Ignore any pre-existing test files in the project. Write all tests from scratch.${outputDirRules}
 - Timeouts count as detected; runtime/compile errors are not scored.
 - Stop early if mutation score gain <5% vs previous run.
 

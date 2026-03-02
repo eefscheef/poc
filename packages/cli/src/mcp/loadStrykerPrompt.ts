@@ -4,6 +4,7 @@ export async function loadStrykerPrompt(
 	client: MCPClient,
 	projectDirectory: string,
 	maxIterations: number,
+	outputDir?: string,
 ): Promise<string> {
 	const session = client.getSession('stryker');
 	if (!session) throw new Error('Stryker session not found');
@@ -13,10 +14,15 @@ export async function loadStrykerPrompt(
 		throw new Error('strykerPrompt not found');
 	}
 
-	const result = await session.getPrompt('strykerPrompt', {
+	const args: Record<string, string> = {
 		projectDirectory,
 		maxIterations: String(maxIterations),
-	});
+	};
+	if (outputDir) {
+		args.outputDir = outputDir;
+	}
+
+	const result = await session.getPrompt('strykerPrompt', args);
 
 	return result.messages
 		.map((m) =>

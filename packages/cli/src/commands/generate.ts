@@ -3,8 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 import { getProjectDirectory } from '../ui/requestProjectDir.ts';
-import { resolveLLMConfig } from '../llm/resolveLLMConfig.ts';
-import { createLLM } from '../llm/providers.ts';
+import { createLLM, type ProviderName } from '../llm/providers.ts';
 import { createMCPClient } from '../mcp/createClient.ts';
 import { loadStrykerPrompt } from '../mcp/loadStrykerPrompt.ts';
 import { createMCPConfig } from '../mcp/config.ts';
@@ -16,10 +15,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export interface GenerateOptions {
-	project?: string;
+	dir?: string;
 	maxIterations?: string;
-	provider?: 'openai' | 'anthropic' | 'google';
-	model?: string;
+	outputDir?: string;
+	provider: ProviderName;
+	model: string;
 	dryRun?: boolean;
 	json?: boolean;
 	verbose?: boolean;
@@ -33,19 +33,31 @@ export async function generateTests(options: GenerateOptions) {
 	let client: ReturnType<typeof createMCPClient> | undefined;
 
 	try {
-		const projectDirectory = await getProjectDirectory(options.project);
+		const projectDirectory = await getProjectDirectory(options.dir);
 		const maxIterations = Number.parseInt(options.maxIterations ?? '4', 10);
+
+		const outputDir = options.outputDir;
 
 		logger.info('Configuration resolved', {
 			projectDirectory,
 			maxIterations,
+			outputDir,
 			provider: options.provider,
 			model: options.model,
 			dryRun: options.dryRun,
 		});
 
 		spinner?.start('Initializing LLM...');
-		const llmConfig = resolveLLMConfig(options.provider, options.model);
+		const apiKey = process.env.LLM_API_KEY;
+		if (!apiKey) {
+			throw new Error('LLM_API_KEY environment variable must be set');
+		}
+		const llmConfig = {
+			provider: options.provider,
+			apiKey,
+			model: options.model,
+			baseUrl: options.provider === 'openai' ? process.env.OPENAI_BASE_URL : undefined,
+		};
 		const llm = createLLM(llmConfig);
 		spinner?.succeed('LLM initialized');
 
@@ -60,7 +72,7 @@ export async function generateTests(options: GenerateOptions) {
 		spinner?.succeed('MCP servers connected');
 
 		spinner?.start('Loading prompt...');
-		const prompt = await loadStrykerPrompt(client, projectDirectory, maxIterations);
+		const prompt = await loadStrykerPrompt(client, projectDirectory, maxIterations, outputDir);
 		spinner?.succeed('Prompt loaded');
 
 		if (options.dryRun) {
