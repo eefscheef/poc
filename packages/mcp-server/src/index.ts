@@ -52,14 +52,13 @@ async function main() {
 
 	logger.info(`Starting with projectDir="${projectDir}" and configFilePath="${configFilePath}"`);
 
-	const { mcpServer, strykerServer } = createServers(logger, {
+	const { mcpServer } = createServers(logger, {
 		path: 'npx',
-		args: ['@stryker-mutator/core', 'serve', 'stdio'],
+		args: ['-y', '-p', '@stryker-mutator/core', 'stryker', 'serve', 'stdio'],
 		projectDir: projectDir,
 		configFilePath,
 	});
 
-	await strykerServer.init();
 	await mcpServer.connect(new StdioServerTransport());
 }
 

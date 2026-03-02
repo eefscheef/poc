@@ -20,7 +20,7 @@ export class Process extends EventEmitter {
 	async init(): Promise<void> {
 		const {
 			path,
-			args = ['@stryker-mutator/core', 'serve', 'stdio'],
+			args = ['-y', '-p', '@stryker-mutator/core', 'stryker', 'serve', 'stdio'],
 			projectDir: cwd = process.cwd(),
 		} = this.config;
 
