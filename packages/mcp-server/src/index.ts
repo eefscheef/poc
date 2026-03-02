@@ -54,7 +54,7 @@ async function main() {
 
 	const { mcpServer, strykerServer } = createServers(logger, {
 		path: 'npx',
-		args: ['stryker', 'serve', 'stdio'],
+		args: ['@stryker-mutator/core', 'serve', 'stdio'],
 		projectDir: projectDir,
 		configFilePath,
 	});

@@ -58,7 +58,7 @@ describe('StrykerServer crash recovery', () => {
 		// Process config
 		processConfig = {
 			path: 'npx',
-			args: ['stryker', 'serve', 'stdio'],
+			args: ['@stryker-mutator/core', 'serve', 'stdio'],
 			cwd: '/test/path',
 		};
 
