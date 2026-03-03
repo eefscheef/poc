@@ -1,5 +1,5 @@
 import { JSONRPCClient } from 'json-rpc-2.0';
-import { Observable, merge, from, filter, map, takeUntil } from 'rxjs';
+import { Observable, merge, from, filter, map, takeUntil, catchError, throwError } from 'rxjs';
 import { Logger } from '../../logging/Logger.ts';
 import { Process } from '../process/Process.ts';
 import { ProcessConfig } from '../process/ProcessConfig.ts';
@@ -131,7 +131,7 @@ export class StrykerServer {
 			this.logger.error(
 				`[StrykerServer] Discover failed after ${Date.now() - startTime}ms: ${error}`,
 			);
-			throw error;
+			throw this.augmentErrorWithStderr(error);
 		}
 	}
 	/** Run mutation tests.  Returns an observable that emits progress
@@ -145,7 +145,21 @@ export class StrykerServer {
 			map((notification) => notification.params),
 			takeUntil(final$),
 		);
-		return merge(progress$, final$);
+		return merge(progress$, final$).pipe(
+			catchError((err) => throwError(() => this.augmentErrorWithStderr(err))),
+		);
+	}
+
+	/**
+	 * Appends recent Stryker stderr output to an error's message so the agent
+	 * can see the detailed failure reason (e.g. failed dry-run tests) that
+	 * Stryker does not include in its JSON-RPC error response.
+	 */
+	private augmentErrorWithStderr(err: unknown): unknown {
+		const stderr = this.transport.getRecentStderr().trim();
+		if (!stderr || !(err instanceof Error)) return err;
+		err.message = `${err.message}\n\nStryker stderr output:\n${stderr}`;
+		return err;
 	}
 	/** Dispose the transport and child process. */
 	async dispose(): Promise<void> {
