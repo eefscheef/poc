@@ -37,10 +37,10 @@ export function registerTestGenerationPrompt(mcpServer: McpServer) {
 		async ({ projectDirectory, maxIterations, outputDir }) => {
 			const outputDirLine = outputDir
 				? `OUTPUT_DIR=${outputDir}`
-				: 'OUTPUT_DIR=<co-located with source files>';
+				: 'OUTPUT_DIR=stryker-tests/';
 
 			const outputDirRules = outputDir
-				? `\n- Write ALL new test files into OUTPUT_DIR (${outputDir}). Do NOT place tests elsewhere.`
+				? `\n- Write ALL new test files into ${outputDir}. Do NOT place tests elsewhere.`
 				: '';
 
 			const messages: PromptMessage[] = [
@@ -66,7 +66,7 @@ Rules:
 - Stop early if mutation score gain <5% vs previous run.
 
 Workflow:
-1) Read the source files in DIR. Write an initial test suite covering observable behavior.
+1) Read the source files in DIR. Write an initial test suite covering observable behavior in OUTPUT_DIR.
 2) Call strykerStart to start the mutation server.
 3) Baseline: R = strykerMutationTest().
 4) Loop ≤ MAX_ITERS:
