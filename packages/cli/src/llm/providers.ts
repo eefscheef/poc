@@ -1,8 +1,8 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatGoogle } from '@langchain/google';
 
-export type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+export type LLMInstance = ChatOpenAI | ChatAnthropic | ChatGoogle;
 
 export type ProviderName = 'openai' | 'anthropic' | 'google';
 
@@ -36,7 +36,7 @@ export function createLLM(config: LLMConfig): LLMInstance {
 			});
 
 		case 'google':
-			return new ChatGoogleGenerativeAI({
+			return new ChatGoogle({
 				apiKey: config.apiKey,
 				model: config.model,
 				temperature,
