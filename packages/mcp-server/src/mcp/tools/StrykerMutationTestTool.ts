@@ -68,7 +68,7 @@ export class StrykerMutationTestTool {
 				inputSchema: MutationTestRequestSchema,
 				outputSchema: MutationTestOverviewSchema,
 			},
-			(rawInput, extra) => this.handle(rawInput, extra),
+			(rawInput, extra) => this.handle(rawInput, extra).catch((err) => this.errorResult(err)),
 		);
 	}
 
@@ -89,10 +89,9 @@ export class StrykerMutationTestTool {
 		try {
 			args = toMutationTestParams(req, this.mutantStore);
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
 			return {
 				isError: true,
-				content: [{ type: 'text', text: msg }],
+				content: [{ type: 'text', text: this.formatError(err) }],
 			};
 		}
 
@@ -263,9 +262,7 @@ export class StrykerMutationTestTool {
 				},
 			});
 		} catch (err) {
-			this.logger.error(
-				`sendNotification failed: ${err instanceof Error ? err.message : String(err)}`,
-			);
+			this.logger.error(`sendNotification failed: ${this.formatError(err)}`);
 		}
 	}
 
@@ -366,6 +363,38 @@ export class StrykerMutationTestTool {
 		].join('\n');
 	}
 
+	/** ---------- Error formatting ---------- */
+
+	/**
+	 * Formats an error for consumption by the agent.
+	 * Includes the message, cause chain, and the first few stack frames so the
+	 * agent has actionable context without being overwhelmed by deep async stacks.
+	 */
+	private formatError(err: unknown): string {
+		if (!(err instanceof Error)) return String(err);
+
+		const parts: string[] = [];
+
+		// Walk the cause chain
+		let current: unknown = err;
+		while (current instanceof Error) {
+			const stackLines = (current.stack ?? '').split('\n');
+			// First line of .stack is usually "ErrorType: message" — skip it and use
+			// current.message directly so we don't duplicate the header.
+			const frames = stackLines.slice(1).filter((l) => l.trim().startsWith('at '));
+
+			parts.push(current.message);
+			if (frames.length > 0) {
+				parts.push(frames.join('\n'));
+			}
+
+			current = current.cause;
+			if (current instanceof Error) parts.push('Caused by:');
+		}
+
+		return parts.join('\n');
+	}
+
 	/** ---------- Results ---------- */
 
 	private notInitializedResult(): CallToolResult {
@@ -381,9 +410,10 @@ export class StrykerMutationTestTool {
 	}
 
 	private errorResult(err: unknown): CallToolResult {
-		const msg = err instanceof Error ? err.message : String(err);
 		return {
-			content: [{ type: 'text', text: `Error running mutation test: ${msg}` }],
+			content: [
+				{ type: 'text', text: `Error running mutation test:\n${this.formatError(err)}` },
+			],
 			isError: true,
 		};
 	}
