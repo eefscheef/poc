@@ -64,6 +64,7 @@ Rules:
 - Ignore any pre-existing test files in the project. Write all tests from scratch.${outputDirRules}
 - Timeouts count as detected; runtime/compile errors are not scored.
 - Stop early if mutation score gain <5% vs previous run.
+- Use ONLY mocha (always available) and Node.js built-ins (assert, node:assert) for tests. Do NOT require/import chai, sinon, proxyquire, jest, vitest, or any other package beyond mocha and Node built-ins. If you are unsure whether a package is installed, do not use it.
 
 Workflow:
 1) Read the source files in DIR. Write an initial test suite covering observable behavior in OUTPUT_DIR.
