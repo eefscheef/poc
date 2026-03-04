@@ -106,30 +106,24 @@ export async function generateTests(options: GenerateOptions) {
 		await agent.initialize();
 		logger.info('Agent started');
 
-		const metrics = new MetricsCollector();
-		const eventStream = agent.streamEvents({
-			prompt,
-			maxSteps: 1000,
-		});
+		if (options.provider === 'google' && options.model.startsWith('gemini-3')) {
+			// No streaming: avoids Gemini 3 preview tool+stream issues
+			const result = await agent.run({ prompt, maxSteps: 1000 });
+			process.stdout.write(result);
+		} else {
+			const metrics = new MetricsCollector();
+			const eventStream = agent.streamEvents({ prompt, maxSteps: 1000 });
 
-		for await (const event of metrics.wrap(eventStream)) {
-			// Render streamed LLM text to stdout (mimics prettyStreamEvents)
-			if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
-				const text = event.data.chunk.text ?? event.data.chunk.content;
-				if (typeof text === 'string' && text.length > 0) {
-					process.stdout.write(text);
+			for await (const event of metrics.wrap(eventStream)) {
+				if (event.event === 'on_chat_model_stream' && event.data?.chunk) {
+					const text = event.data.chunk.text ?? event.data.chunk.content;
+					if (typeof text === 'string' && text.length > 0) process.stdout.write(text);
 				}
 			}
-		}
 
-		const trace = metrics.finalise();
-
-		if (ctx.json) {
-			logger.info('Session trace', trace);
-		} else {
+			const trace = metrics.finalise();
 			console.log(formatTraceText(trace));
 		}
-
 		logger.info('Test generation completed');
 	} catch (err) {
 		spinner?.fail('Generation failed');
