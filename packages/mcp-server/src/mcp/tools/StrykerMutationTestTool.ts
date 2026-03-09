@@ -71,7 +71,7 @@ export class StrykerMutationTestTool {
 	}
 
 	private async handle(rawInput: unknown, extra: Extra): Promise<CallToolResult> {
-		if (!this.strykerServer.isInitialized()) return this.notInitializedResult();
+		await this.strykerServer.waitForInit();
 
 		const parsed = MutationTestRequestSchema.safeParse(rawInput ?? { mode: 'all' });
 		if (!parsed.success) {
@@ -152,9 +152,8 @@ export class StrykerMutationTestTool {
 		const maxMutantsShown = 20;
 
 		const lines: string[] = [];
-		lines.push(metricsText);
 		lines.push(`RunId: ${runId}`);
-		lines.push('');
+		lines.push(metricsText);
 
 		if (undetected.length === 0) {
 			lines.push('No undetected mutants (no Survived / NoCoverage).');

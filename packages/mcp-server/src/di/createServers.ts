@@ -11,7 +11,6 @@ import { StrykerMutationTestTool } from '../mcp/tools/StrykerMutationTestTool.ts
 import { registerTestGenerationPrompt } from '../mcp/prompts/testGenerationPrompt.ts';
 import { InMemoryMutantStore } from '../mcp/mutant-cache/InMemoryMutantStore.ts';
 import { StrykerMutantDetailsTool } from '../mcp/tools/StrykerMutantDetailsTool.ts';
-import { StrykerStartTool } from '../mcp/tools/StrykerStartTool.ts';
 
 export function createServers(logger: Logger, config: ProcessConfig) {
 	const mcpServer = new McpServer({ name: 'stryker-mcp', version: '0.1.0' });

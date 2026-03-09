@@ -30,9 +30,7 @@ export class StrykerConfigureTool {
 		try {
 			this.logger.info(`[strykerConfigure] Received request: ${JSON.stringify(args)}`);
 
-			if (!this.strykerServer.isInitialized()) {
-				return this.notInitializedResult();
-			}
+			await this.strykerServer.waitForInit();
 
 			this.logger.info(
 				`[strykerConfigure] Calling strykerServer.configure with params: ${JSON.stringify(args)}`,
