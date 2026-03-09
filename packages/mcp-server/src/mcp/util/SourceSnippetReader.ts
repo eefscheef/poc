@@ -31,6 +31,51 @@ export class SourceSnippetReader {
 		return abs;
 	}
 
+	/**
+	 * Returns the full source line(s) affected by `location`, alongside a mutated
+	 * version where the range is replaced by `replacement`.
+	 *
+	 * Lines are 1-based; columns are 0-based (Stryker convention).
+	 * For multi-line mutations the replacement collapses all affected lines into one
+	 * `+` line (matching Stryker's model: one replacement string per mutant).
+	 */
+	async readLineDiff(
+		filePath: string,
+		location: Location,
+		replacement: string | undefined,
+	): Promise<{ original: string; mutated: string } | undefined> {
+		const absPath = this.resolveProjectPath(filePath);
+		if (!absPath) return undefined;
+
+		try {
+			const text = await readFile(absPath, 'utf8');
+			const lines = text.split(/\r?\n/);
+
+			const startLine = location.start.line; // 1-based
+			const endLine = location.end.line; // 1-based
+
+			const firstLine = lines[startLine - 1] ?? '';
+			const lastLine = lines[endLine - 1] ?? '';
+
+			// Original: the full line(s) spanning the mutation
+			const originalLines = lines.slice(startLine - 1, endLine);
+			const original = originalLines.map((l) => l.trimEnd()).join('\n');
+
+			// Stryker uses 1-based columns; convert to 0-based slice indices.
+			// start.column - 1 = index of first mutated char (prefix ends before it)
+			// end.column - 1 = index of first char after mutation (suffix starts here)
+			const prefix = firstLine.slice(0, location.start.column - 1);
+			const suffix = lastLine.slice(location.end.column - 1);
+			const mutated = (prefix + (replacement ?? '') + suffix).trimEnd();
+
+			return { original, mutated };
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.logger.warn(`Failed to read line diff for ${filePath}: ${msg}`);
+			return undefined;
+		}
+	}
+
 	async readSnippet(
 		filePath: string,
 		location: Location,

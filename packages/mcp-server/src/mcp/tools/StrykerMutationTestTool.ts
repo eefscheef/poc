@@ -173,11 +173,7 @@ export class StrykerMutationTestTool {
 			return a.status === 'NoCoverage' ? -1 : 1;
 		});
 
-		const maxMutantsShown = 10;
-		const snippetContextLines = 2;
-		const maxTotalSnippetChars = 2000;
-
-		let usedSnippetChars = 0;
+		const maxMutantsShown = 20;
 
 		const lines: string[] = [];
 		lines.push(metricsText);
@@ -197,34 +193,16 @@ export class StrykerMutationTestTool {
 		for (const { filePath, mutant, status } of shown) {
 			lines.push(
 				`- [${status}] ${filePath}:${mutant.location.start.line}:${mutant.location.start.column} ` +
-					`(id=${mutant.id}, mutator=${mutant.mutatorName})`,
+					`(id=${mutant.id})`,
 			);
 
-			// Snippet enabled by default, but bounded
-			if (usedSnippetChars < maxTotalSnippetChars) {
-				const snippet = await this.snippetReader.readSnippet(
-					filePath,
-					mutant.location,
-					snippetContextLines,
-				);
-				if (snippet) {
-					const snippetText =
-						`  Snippet (L${snippet.startLine}-L${snippet.endLine}):\n` +
-						snippet.text
-							.split('\n')
-							.map((l) => `    ${l}`)
-							.join('\n');
-
-					const remaining = maxTotalSnippetChars - usedSnippetChars;
-					const clipped =
-						snippetText.length > remaining
-							? snippetText.slice(0, remaining - 1) + '…'
-							: snippetText;
-
-					usedSnippetChars += clipped.length;
-					lines.push(clipped);
-				}
-			}
+			const diff = await this.snippetReader.readLineDiff(
+				filePath,
+				mutant.location,
+				mutant.replacement,
+			);
+			lines.push(`  - ${diff?.original ?? '(unknown)'}`);
+			lines.push(`  + ${diff?.mutated ?? '(unknown)'}`);
 
 			lines.push('');
 		}
@@ -355,10 +333,6 @@ export class StrykerMutationTestTool {
 		return [
 			`Mutation score: ${m.mutationScore}%`,
 			`Score (covered code): ${m.mutationScoreBasedOnCoveredCode}%`,
-			`Survived: ${m.survived}`,
-			`Detected mutants: ${m.totalDetected}`,
-			`Undetected mutants: ${m.totalUndetected}`,
-			`No coverage: ${m.noCoverage}`,
 			`Total mutants: ${m.totalMutants}`,
 		].join('\n');
 	}
