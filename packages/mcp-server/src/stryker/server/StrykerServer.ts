@@ -34,6 +34,7 @@ export class StrykerServer {
 	private readonly client: JSONRPCClient;
 	private readonly config: ProcessConfig;
 	private initialized = false;
+	private initPromise: Promise<void> | null = null;
 	constructor(
 		process: Process,
 		transport: StdioTransport,
@@ -52,8 +53,24 @@ export class StrykerServer {
 	}
 	/** Start the child process and transport, then perform an initial
 	 * configure call.  Throw if the protocol version mismatches.
+	 * Calling init() while initialization is already in progress returns the same promise.
 	 */
 	async init(): Promise<void> {
+		if (this.initPromise) return this.initPromise;
+		this.initPromise = this.doInit();
+		return this.initPromise;
+	}
+
+	/**
+	 * Returns a promise that resolves when the server is initialized.
+	 * Rejects immediately if init() has never been called.
+	 * This allows callers to await readiness rather than failing instantly.
+	 */
+	waitForInit(): Promise<void> {
+		return this.initPromise ?? Promise.reject(new Error('Stryker server has not been started.'));
+	}
+
+	private async doInit(): Promise<void> {
 		const startTime = Date.now();
 		this.logger.info('[StrykerServer] Starting initialization...');
 
@@ -69,6 +86,7 @@ export class StrykerServer {
 				`[StrykerServer] Process exited unexpectedly (code: ${code}, signal: ${signal})`,
 			);
 			this.initialized = false;
+			this.initPromise = null;
 			// Unblock any in-flight JSON-RPC requests (e.g. a pending mutationTest).
 			// The resulting rejection will surface through the observable's catchError,
 			// which calls augmentErrorWithStderr to attach the relevant Stryker output.

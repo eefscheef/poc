@@ -30,9 +30,7 @@ export class StrykerDiscoverTool {
 		try {
 			this.logger.info(`[strykerDiscover] Received request: ${JSON.stringify(args)}`);
 
-			if (!this.strykerServer.isInitialized()) {
-				return this.notInitializedResult();
-			}
+			await this.strykerServer.waitForInit();
 
 			this.logFileSelection(args);
 
