@@ -27,8 +27,7 @@ export function createServers(logger: Logger, config: ProcessConfig) {
 		.provideValue(tokens.projectDir, config.projectDir);
 
 	const strykerServer = injector.resolve(tokens.strykerServer);
-
-	injector.injectClass(StrykerStartTool).register();
+	// injector.injectClass(StrykerStartTool).register(); // Stryker is started automatically on MCP server init
 	injector.injectClass(StrykerMutationTestTool).register();
 	injector.injectClass(StrykerMutantDetailsTool).register();
 
