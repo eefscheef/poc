@@ -57,4 +57,15 @@ export abstract class BaseTransport {
 		this.notifications.complete();
 		this.messages.complete();
 	}
+
+	/**
+	 * Errors both subjects with the provided error, unblocking any pending
+	 * subscribers (e.g. an in-flight mutationTest observable) when the
+	 * underlying process exits unexpectedly.
+	 */
+	abort(err: Error) {
+		this.connected = false;
+		this.notifications.error(err);
+		this.messages.error(err);
+	}
 }
