@@ -13,11 +13,10 @@ import { Logger } from '../../logging/Logger.ts';
 import { tokens } from '../../di/tokens.ts';
 import type { MutantStore } from '../mutant-cache/MutantStore.ts';
 import {
-	MutationTestOverviewSchema,
 	MutationTestRequestSchema,
 	type MutationTestRequest,
-	type MutationTestOverview,
 } from '../schemas/MutationTestSchema.ts';
+
 import type { Extra } from '../util/mcpTypes.ts';
 import { toMutationTestParams } from '../util/toMutationTestParams.ts';
 import { SourceSnippetReader } from '../util/SourceSnippetReader.ts';
@@ -66,7 +65,6 @@ export class StrykerMutationTestTool {
 					'all (default), files (requires files), ' +
 					'survivors (requires runId, optional refs), mutants (requires runId and refs).',
 				inputSchema: MutationTestRequestSchema,
-				outputSchema: MutationTestOverviewSchema,
 			},
 			(rawInput, extra) => this.handle(rawInput, extra).catch((err) => this.errorResult(err)),
 		);
@@ -112,38 +110,16 @@ export class StrykerMutationTestTool {
 			this.mutantStore.put(runId, mspResult);
 
 			const metrics = this.calculateMetrics(mspResult);
-			const overview = this.buildOverview(runId, mspResult);
 			const text = await this.formatOverviewText(runId, metrics, mspResult);
 
 			return {
 				content: [{ type: 'text', text }],
-				structuredContent: overview,
 			};
 		} catch (err) {
 			return this.errorResult(err);
 		}
 	}
-	/** ---------- Minimal structured content ---------- */
-
-	private buildOverview(runId: number, mspResult: MutationTestResult): MutationTestOverview {
-		const undetected: MutationTestOverview['undetected'] = [];
-
-		for (const [filePath, fileResult] of Object.entries(mspResult.files ?? {})) {
-			for (const m of fileResult.mutants ?? []) {
-				if (m.status === 'Survived' || m.status === 'NoCoverage') {
-					undetected.push({
-						filePath,
-						id: m.id,
-						status: m.status,
-					});
-				}
-			}
-		}
-
-		return { runId, undetected };
-	}
-
-	/** ---------- Text-first formatting (bounded) ---------- */
+	/** ---------- Text-first formatting ---------- */
 
 	private async formatOverviewText(
 		runId: number,
