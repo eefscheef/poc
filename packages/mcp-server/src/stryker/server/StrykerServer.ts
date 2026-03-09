@@ -69,6 +69,14 @@ export class StrykerServer {
 				`[StrykerServer] Process exited unexpectedly (code: ${code}, signal: ${signal})`,
 			);
 			this.initialized = false;
+			// Unblock any in-flight JSON-RPC requests (e.g. a pending mutationTest).
+			// The resulting rejection will surface through the observable's catchError,
+			// which calls augmentErrorWithStderr to attach the relevant Stryker output.
+			const exitErr = new Error(
+				`Stryker process exited unexpectedly (code: ${code}, signal: ${signal})`,
+			);
+			this.client.rejectAllPendingRequests(exitErr.message);
+			this.transport.abort(exitErr);
 		});
 
 		// Forward responses from transport to the JSON‑RPC client
@@ -154,11 +162,34 @@ export class StrykerServer {
 	 * Appends recent Stryker stderr output to an error's message so the agent
 	 * can see the detailed failure reason (e.g. failed dry-run tests) that
 	 * Stryker does not include in its JSON-RPC error response.
+	 *
+	 * Only meaningful lines are included — Stryker log lines (timestamped) and
+	 * tab-indented test-failure context (test names, error messages). Stack
+	 * frames and JSON-RPC wrapper sentences are dropped.
 	 */
 	private augmentErrorWithStderr(err: unknown): unknown {
-		const stderr = this.transport.getRecentStderr().trim();
-		if (!stderr || !(err instanceof Error)) return err;
-		err.message = `${err.message}\n\nStryker stderr output:\n${stderr}`;
+		const raw = this.transport.getRecentStderr().trim();
+		if (!raw || !(err instanceof Error)) return err;
+
+		const originalMessage = err.message;
+
+		const filtered = raw
+			.split('\n')
+			.filter(
+				(line) =>
+					// Stryker timestamped log lines: "HH:MM:SS (pid) LEVEL ..."
+					(/^\d{2}:\d{2}:\d{2} \(\d+\)/.test(line) ||
+						// Tab-indented lines are test names / error messages formatted by
+						// Stryker core's DryRunExecutor
+						line.startsWith('\t')) &&
+					// Drop lines that just repeat the error message already shown at the top
+					!line.includes(originalMessage),
+			)
+			.join('\n')
+			.trim();
+
+		if (!filtered) return err;
+		err.message = `${err.message}\n\nStryker stderr output:\n${filtered}`;
 		return err;
 	}
 	/** Dispose the transport and child process. */

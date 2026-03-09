@@ -381,7 +381,11 @@ export class StrykerMutationTestTool {
 			const stackLines = (current.stack ?? '').split('\n');
 			// First line of .stack is usually "ErrorType: message" — skip it and use
 			// current.message directly so we don't duplicate the header.
-			const frames = stackLines.slice(1).filter((l) => l.trim().startsWith('at '));
+			// Filter out node_modules frames — they are always library internals
+			// (e.g. JSONRPCErrorException) and are never actionable for the agent.
+			const frames = stackLines
+				.slice(1)
+				.filter((l) => l.trim().startsWith('at ') && !l.includes('node_modules'));
 
 			parts.push(current.message);
 			if (frames.length > 0) {
