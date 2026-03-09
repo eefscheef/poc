@@ -55,6 +55,9 @@ DIR=${projectDirectory}; MAX_ITERS=${maxIterations}; ${outputDirLine}
 Tools: strykerStart, strykerMutationTest.
 
 Rules:
+- Use ONLY Mocha & Node.js built-ins (assert, node:assert) for tests.
+- Do NOT require/import chai, sinon, proxyquire, jest, vitest, or any other package. If you are unsure whether a package is installed, do not use it.
+- NEVER use mocking libraries. Do the best you can with what you have: Mocha and Node.js built-ins. Prefer making real requests if necessary.
 - All mutants returned by strykerMutationTest are undetected (Stryker: Survived + NoCoverage).
 - Every returned mutant MUST be investigated and explicitly addressed.
 - For each mutant, either:
@@ -64,7 +67,8 @@ Rules:
 - Ignore any pre-existing test files in the project. Write all tests from scratch.${outputDirRules}
 - Timeouts count as detected; runtime/compile errors are not scored.
 - Stop early if mutation score gain <5% vs previous run.
-- Use ONLY mocha (always available) and Node.js built-ins (assert, node:assert) for tests. Do NOT require/import chai, sinon, proxyquire, jest, vitest, or any other package beyond mocha and Node built-ins. If you are unsure whether a package is installed, do not use it.
+- Importing the library should generally look like const { library } = require("../../index"); const { SomeClass } = require("../../lib/SomeClass"); Tests live in test/generated, so you should only ever import from ../..
+- This is a FULLY AUTOMATED run. There is NO human available to respond. NEVER ask the user or anyone else to install packages, change configuration, or take any action. If you cannot proceed, write the final report immediately and stop.Workflow:
 
 Workflow:
 1) Read the source files in DIR. Write an initial test suite covering observable behavior in OUTPUT_DIR.
