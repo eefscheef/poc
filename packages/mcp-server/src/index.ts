@@ -59,6 +59,24 @@ async function main() {
 		configFilePath,
 	});
 
+	const shutdown = async () => {
+		logger.info('[Main] Shutting down — cleaning up Stryker resources...');
+		try {
+			await strykerServer.dispose();
+		} catch (err) {
+			logger.error(
+				`[Main] Error during shutdown: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	};
+
+	// SIGINT / SIGTERM: covers manual kills and some platforms.
+	// stdin 'close': the reliable hook on Windows when the MCP client disconnects
+	// its stdio pipe (SIGTERM is not a real OS signal on Windows).
+	process.once('SIGINT', () => void shutdown().then(() => process.exit(0)));
+	process.once('SIGTERM', () => void shutdown().then(() => process.exit(0)));
+	process.stdin.once('close', () => void shutdown());
+
 	await mcpServer.connect(new StdioServerTransport());
 	await strykerServer.init();
 }
