@@ -127,17 +127,28 @@ export async function generateTests(options: GenerateOptions) {
 		logger.info('Test generation completed');
 	} catch (err) {
 		spinner?.fail('Generation failed');
-		if (err instanceof Error) {
-			logger.error('Error details', {
-				message: err.message,
-				stack: err.stack,
-			});
-		} else {
-			logger.error('Unknown error', err);
-		}
+		logger.error('Error details', serializeError(err));
 		process.exitCode = 1;
 	} finally {
 		if (agent) await agent.close();
 		if (client) await client.closeAllSessions();
 	}
+}
+
+/**
+ * Serializes an error for logging, capturing all own properties (including
+ * non-enumerable ones like `message` and `stack`) plus the full cause chain.
+ * This surfaces response bodies from HTTP errors.
+ */
+function serializeError(err: unknown, depth = 7): unknown {
+	if (!(err instanceof Error)) return err;
+	const props = Object.fromEntries(
+		Object.getOwnPropertyNames(err)
+			.filter((k) => k !== 'cause')
+			.map((k) => [k, (err as unknown as Record<string, unknown>)[k]]),
+	);
+	return {
+		...props,
+		...(err.cause !== undefined && { cause: serializeError(err.cause, depth - 1) }),
+	};
 }
