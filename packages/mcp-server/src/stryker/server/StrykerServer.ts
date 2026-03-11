@@ -28,23 +28,17 @@ export class StrykerServer {
 		tokens.logger,
 		tokens.processConfig,
 	] as const;
-	private readonly process: Process;
-	private readonly transport: StdioTransport;
-	private readonly logger: Logger;
+
 	private readonly client: JSONRPCClient;
-	private readonly config: ProcessConfig;
 	private initialized = false;
 	private initPromise: Promise<void> | null = null;
+
 	constructor(
-		process: Process,
-		transport: StdioTransport,
-		logger: Logger,
-		config: ProcessConfig,
+		private readonly process: Process,
+		private readonly transport: StdioTransport,
+		private readonly logger: Logger,
+		private readonly config: ProcessConfig,
 	) {
-		this.process = process;
-		this.transport = transport;
-		this.logger = logger;
-		this.config = config;
 		// Set up the JSON‑RPC client: it uses the transport's send method
 		this.client = new JSONRPCClient((req) => {
 			this.logger.info(`[JSON-RPC] Sending request: ${req.method} (id: ${req.id})`);
@@ -143,7 +137,11 @@ export class StrykerServer {
 	 * the mutation‑server‑protocol; here we support an optional `configFilePath`.
 	 */
 	async configure(params: ConfigureParams): Promise<ConfigureResult> {
-		return this.client.request('configure', params);
+		try {
+			return await this.client.request('configure', params);
+		} catch (error) {
+			throw this.augmentErrorWithStderr(error);
+		}
 	}
 	/** Discover mutants in the project.  Returns a promise that resolves to
 	 * DiscoverResult.
@@ -201,11 +199,14 @@ export class StrykerServer {
 	 *   details, diffs, blank separators) while dropping runtime stack frames.
 	 * - Ignores WARN/INFO/DEBUG lines and anything before the first error.
 	 */
+	private static readonly LOG_LINE = /^\d{2}:\d{2}:\d{2} \(\d+\) (\w+)\b/;
+	private static readonly LOG_PREFIX = /^\d{2}:\d{2}:\d{2} \(\d+\)\s+/;
+	private static readonly SKIP_SUMMARY =
+		/^ERROR Stryker There were failed tests in the initial test run\.?$/;
+	private static readonly STACK_FRAME = /^\s*at\s+/;
+
 	private filterStderrLines(lines: string[]): string[] {
-		const LOG_LINE = /^\d{2}:\d{2}:\d{2} \(\d+\) (\w+)\b/;
-		const LOG_PREFIX = /^\d{2}:\d{2}:\d{2} \(\d+\)\s+/;
-		const SKIP_SUMMARY = /^ERROR Stryker There were failed tests in the initial test run\.?$/;
-		const STACK_FRAME = /^\s*at\s+/;
+		const { LOG_LINE, LOG_PREFIX, SKIP_SUMMARY, STACK_FRAME } = StrykerServer;
 
 		const result: string[] = [];
 		let capturing = false;

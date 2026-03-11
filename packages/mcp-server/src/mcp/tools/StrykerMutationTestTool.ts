@@ -23,19 +23,16 @@ import { SourceSnippetReader } from '../util/SourceSnippetReader.ts';
 
 type AgentMutationMetrics = Pick<
 	Metrics,
-	| 'mutationScore'
-	| 'mutationScoreBasedOnCoveredCode'
-	| 'totalMutants'
-	| 'totalDetected'
-	| 'totalUndetected'
-	| 'survived'
-	| 'noCoverage'
+	'mutationScore' | 'mutationScoreBasedOnCoveredCode' | 'totalMutants'
 >;
 
 type UndetectedStatus = 'Survived' | 'NoCoverage';
 
 export class StrykerMutationTestTool {
+	private static readonly MAX_MUTANTS_SHOWN = 20;
+
 	private nextRunId = 0;
+	private readonly snippetReader: SourceSnippetReader;
 
 	static inject = [
 		tokens.mcpServer,
@@ -54,7 +51,6 @@ export class StrykerMutationTestTool {
 	) {
 		this.snippetReader = new SourceSnippetReader(this.projectDir, this.logger);
 	}
-	private readonly snippetReader: SourceSnippetReader;
 
 	register() {
 		this.mcpServer.registerTool(
@@ -144,12 +140,7 @@ export class StrykerMutationTestTool {
 		}
 
 		// NoCoverage first, then Survived
-		undetected.sort((a, b) => {
-			if (a.status === b.status) return 0;
-			return a.status === 'NoCoverage' ? -1 : 1;
-		});
-
-		const maxMutantsShown = 20;
+		undetected.sort((a, b) => (a.status === b.status ? 0 : a.status === 'NoCoverage' ? -1 : 1));
 
 		const lines: string[] = [];
 		lines.push(`RunId: ${runId}`);
@@ -163,26 +154,28 @@ export class StrykerMutationTestTool {
 		lines.push(`Undetected mutants: ${undetected.length}`);
 		lines.push('');
 
-		const shown = undetected.slice(0, maxMutantsShown);
+		const shown = undetected.slice(0, StrykerMutationTestTool.MAX_MUTANTS_SHOWN);
 
-		for (const { filePath, mutant, status } of shown) {
+		const diffs = await Promise.all(
+			shown.map(({ filePath, mutant }) =>
+				this.snippetReader.readLineDiff(filePath, mutant.location, mutant.replacement),
+			),
+		);
+
+		for (let i = 0; i < shown.length; i++) {
+			const { filePath, mutant, status } = shown[i];
+			const diff = diffs[i];
+
 			lines.push(
 				`- [${status}] ${filePath}:${mutant.location.start.line}:${mutant.location.start.column} ` +
 					`(id=${mutant.id})`,
 			);
-
-			const diff = await this.snippetReader.readLineDiff(
-				filePath,
-				mutant.location,
-				mutant.replacement,
-			);
 			lines.push(`  - ${diff?.original ?? '(unknown)'}`);
 			lines.push(`  + ${diff?.mutated ?? '(unknown)'}`);
-
 			lines.push('');
 		}
 
-		const remainingCount = undetected.length - shown.length;
+		const remainingCount = undetected.length - StrykerMutationTestTool.MAX_MUTANTS_SHOWN;
 		if (remainingCount > 0) {
 			lines.push(`…and ${remainingCount} more undetected mutants not shown.`);
 			lines.push('');
@@ -288,19 +281,12 @@ export class StrykerMutationTestTool {
 			),
 		};
 
-		const fullMetrics =
-			calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
+		const m = calculateMutationTestMetrics(reportSchemaResult).systemUnderTestMetrics.metrics;
 
 		return {
-			mutationScore: Number(fullMetrics.mutationScore.toFixed(2)),
-			mutationScoreBasedOnCoveredCode: Number(
-				fullMetrics.mutationScoreBasedOnCoveredCode.toFixed(2),
-			),
-			survived: fullMetrics.survived,
-			noCoverage: fullMetrics.noCoverage,
-			totalDetected: fullMetrics.totalDetected,
-			totalUndetected: fullMetrics.totalUndetected,
-			totalMutants: fullMetrics.totalMutants,
+			mutationScore: Number(m.mutationScore.toFixed(2)),
+			mutationScoreBasedOnCoveredCode: Number(m.mutationScoreBasedOnCoveredCode.toFixed(2)),
+			totalMutants: m.totalMutants,
 		};
 	}
 
