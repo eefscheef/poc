@@ -117,7 +117,7 @@ export class MetricsCollector {
 			model: event.name ?? undefined,
 			startMs: Date.now(),
 			firstTokenMs: null,
-			tokens: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+			tokens: { promptTokens: 0, completionTokens: 0, reasoningTokens: 0, totalTokens: 0 },
 		});
 	}
 
@@ -152,6 +152,7 @@ export class MetricsCollector {
 				promptTokens: usage.input_tokens ?? usage.prompt_tokens ?? usage.promptTokens ?? 0,
 				completionTokens:
 					usage.output_tokens ?? usage.completion_tokens ?? usage.completionTokens ?? 0,
+				reasoningTokens: usage.output_token_details?.reasoning ?? 0,
 				totalTokens:
 					usage.total_tokens ??
 					usage.totalTokens ??
@@ -251,12 +252,14 @@ export class MetricsCollector {
 		// Token aggregates
 		let totalPromptTokens = 0;
 		let totalCompletionTokens = 0;
+		let totalReasoningTokens = 0;
 		let totalTokens = 0;
 		const promptTokenGrowth: number[] = [];
 
 		for (const call of this.llmCalls) {
 			totalPromptTokens += call.tokens.promptTokens;
 			totalCompletionTokens += call.tokens.completionTokens;
+			totalReasoningTokens += call.tokens.reasoningTokens;
 			totalTokens += call.tokens.totalTokens;
 			promptTokenGrowth.push(call.tokens.promptTokens);
 		}
@@ -285,6 +288,7 @@ export class MetricsCollector {
 			totalDurationMs,
 			totalPromptTokens,
 			totalCompletionTokens,
+			totalReasoningTokens,
 			totalTokens,
 			promptTokenGrowth,
 			llmCallCount: this.llmCalls.length,

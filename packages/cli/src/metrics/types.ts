@@ -8,6 +8,8 @@
 export interface LLMCallTokens {
 	promptTokens: number;
 	completionTokens: number;
+	/** Reasoning/thinking tokens (subset of completionTokens for some providers). */
+	reasoningTokens: number;
 	totalTokens: number;
 }
 
@@ -47,6 +49,7 @@ export interface SessionSummary {
 	// ── Token metrics ────────────────────────────────────────────────
 	totalPromptTokens: number;
 	totalCompletionTokens: number;
+	totalReasoningTokens: number;
 	totalTokens: number;
 
 	/** Per-LLM-call input-token counts – useful for detecting prompt bloat. */
@@ -81,18 +84,5 @@ export interface SessionTrace {
 	llmCalls: LLMCallMetrics[];
 	toolCalls: ToolCallMetrics[];
 	toolFailureStats: Record<string, Record<string, number>>;
-	summary: SessionSummary;
-}
-
-export interface SessionTrace {
-	/** ISO-8601 timestamp when the session started. */
-	startedAt: string;
-	/** ISO-8601 timestamp when the session ended. */
-	endedAt: string;
-	/** Ordered list of every LLM call in the session. */
-	llmCalls: LLMCallMetrics[];
-	/** Ordered list of every tool call in the session. */
-	toolCalls: ToolCallMetrics[];
-	/** Aggregated summary. */
 	summary: SessionSummary;
 }

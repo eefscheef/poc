@@ -26,6 +26,9 @@ export function formatTraceText(trace: SessionTrace): string {
 	lines.push(chalk.bold('Tokens'));
 	lines.push(`  Prompt tokens         ${s.totalPromptTokens.toLocaleString()}`);
 	lines.push(`  Completion tokens     ${s.totalCompletionTokens.toLocaleString()}`);
+	if (s.totalReasoningTokens > 0) {
+		lines.push(`    Reasoning tokens    ${s.totalReasoningTokens.toLocaleString()}`);
+	}
 	lines.push(`  Total tokens          ${s.totalTokens.toLocaleString()}`);
 
 	if (s.promptTokenGrowth.length > 1) {
@@ -43,7 +46,10 @@ export function formatTraceText(trace: SessionTrace): string {
 			const ttft = call.ttftMs !== null ? `TTFT ${fmtMs(call.ttftMs)}` : chalk.dim('no TTFT');
 			lines.push(
 				`    #${call.callIndex}  ${fmtMs(call.latencyMs)}  ${ttft}  ` +
-					`in:${call.tokens.promptTokens} out:${call.tokens.completionTokens}`,
+					`in:${call.tokens.promptTokens} out:${call.tokens.completionTokens}` +
+					(call.tokens.reasoningTokens > 0
+						? ` (${call.tokens.reasoningTokens} reasoning)`
+						: ''),
 			);
 		}
 	}
