@@ -11,11 +11,13 @@ export interface LLMConfig {
 	apiKey: string;
 	model: string;
 	temperature?: number;
+	maxOutputTokens?: number;
 	baseUrl?: string;
 }
 
 export function createLLM(config: LLMConfig): LLMInstance {
-	const temperature = config.temperature ?? 0.2;
+	const temperature = config.temperature ?? 1.0;
+	const maxOutputTokens = config.maxOutputTokens ?? 16_384;
 
 	switch (config.provider) {
 		case 'openai':
@@ -23,6 +25,7 @@ export function createLLM(config: LLMConfig): LLMInstance {
 				apiKey: config.apiKey,
 				model: config.model,
 				temperature,
+				maxTokens: maxOutputTokens,
 				...(config.baseUrl && {
 					configuration: { baseURL: config.baseUrl },
 				}),
@@ -33,6 +36,7 @@ export function createLLM(config: LLMConfig): LLMInstance {
 				apiKey: config.apiKey,
 				model: config.model,
 				temperature,
+				maxTokens: maxOutputTokens,
 			});
 
 		case 'google':
@@ -40,6 +44,7 @@ export function createLLM(config: LLMConfig): LLMInstance {
 				apiKey: config.apiKey,
 				model: config.model,
 				temperature,
+				maxOutputTokens,
 			});
 
 		default:
