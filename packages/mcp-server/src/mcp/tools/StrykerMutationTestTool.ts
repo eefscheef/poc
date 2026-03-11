@@ -330,11 +330,16 @@ export class StrykerMutationTestTool {
 			const stackLines = (current.stack ?? '').split('\n');
 			// First line of .stack is usually "ErrorType: message" — skip it and use
 			// current.message directly so we don't duplicate the header.
-			// Filter out node_modules frames — they are always library internals
-			// (e.g. JSONRPCErrorException) and are never actionable for the agent.
+			// Filter out library and runtime internals (node_modules + node:internal)
+			// since they are usually not actionable for the agent.
 			const frames = stackLines
 				.slice(1)
-				.filter((l) => l.trim().startsWith('at ') && !l.includes('node_modules'));
+				.filter(
+					(l) =>
+						l.trim().startsWith('at ') &&
+						!l.includes('node_modules') &&
+						!l.includes('node:internal'),
+				);
 
 			parts.push(current.message);
 			if (frames.length > 0) {
@@ -350,23 +355,9 @@ export class StrykerMutationTestTool {
 
 	/** ---------- Results ---------- */
 
-	private notInitializedResult(): CallToolResult {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Stryker server is not initialized. Call strykerStart first.',
-				},
-			],
-			isError: true,
-		};
-	}
-
 	private errorResult(err: unknown): CallToolResult {
 		return {
-			content: [
-				{ type: 'text', text: `Error running mutation test:\n${this.formatError(err)}` },
-			],
+			content: [{ type: 'text', text: this.formatError(err) }],
 			isError: true,
 		};
 	}

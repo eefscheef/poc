@@ -67,7 +67,9 @@ export class StrykerServer {
 	 * This allows callers to await readiness rather than failing instantly.
 	 */
 	waitForInit(): Promise<void> {
-		return this.initPromise ?? Promise.reject(new Error('Stryker server has not been started.'));
+		return (
+			this.initPromise ?? Promise.reject(new Error('Stryker server has not been started.'))
+		);
 	}
 
 	private async doInit(): Promise<void> {
@@ -177,38 +179,58 @@ export class StrykerServer {
 	}
 
 	/**
-	 * Appends recent Stryker stderr output to an error's message so the agent
-	 * can see the detailed failure reason (e.g. failed dry-run tests) that
-	 * Stryker does not include in its JSON-RPC error response.
-	 *
-	 * Only meaningful lines are included — Stryker log lines (timestamped) and
-	 * tab-indented test-failure context (test names, error messages). Stack
-	 * frames and JSON-RPC wrapper sentences are dropped.
+	 * Replaces a generic JSON-RPC error message with the actionable Stryker
+	 * stderr output (e.g. failed dry-run test details and assertion diffs).
 	 */
 	private augmentErrorWithStderr(err: unknown): unknown {
 		const raw = this.transport.getRecentStderr().trim();
 		if (!raw || !(err instanceof Error)) return err;
 
-		const originalMessage = err.message;
-
-		const filtered = raw
-			.split('\n')
-			.filter(
-				(line) =>
-					// Stryker timestamped log lines: "HH:MM:SS (pid) LEVEL ..."
-					(/^\d{2}:\d{2}:\d{2} \(\d+\)/.test(line) ||
-						// Tab-indented lines are test names / error messages formatted by
-						// Stryker core's DryRunExecutor
-						line.startsWith('\t')) &&
-					// Drop lines that just repeat the error message already shown at the top
-					!line.includes(originalMessage),
-			)
-			.join('\n')
-			.trim();
-
+		const filtered = this.filterStderrLines(raw.split('\n')).join('\n').trim();
 		if (!filtered) return err;
-		err.message = `${err.message}\n\nStryker stderr output:\n${filtered}`;
+
+		err.message = filtered;
 		return err;
+	}
+
+	/**
+	 * Filters raw Stryker stderr lines down to actionable content:
+	 * - Keeps ERROR/FATAL log headers (timestamp and pid stripped).
+	 * - Drops the redundant top-level "There were failed tests" summary.
+	 * - After an error header, captures all follow-on content (assertion
+	 *   details, diffs, blank separators) while dropping runtime stack frames.
+	 * - Ignores WARN/INFO/DEBUG lines and anything before the first error.
+	 */
+	private filterStderrLines(lines: string[]): string[] {
+		const LOG_LINE = /^\d{2}:\d{2}:\d{2} \(\d+\) (\w+)\b/;
+		const LOG_PREFIX = /^\d{2}:\d{2}:\d{2} \(\d+\)\s+/;
+		const SKIP_SUMMARY = /^ERROR Stryker There were failed tests in the initial test run\.?$/;
+		const STACK_FRAME = /^\s*at\s+/;
+
+		const result: string[] = [];
+		let capturing = false;
+
+		for (const line of lines) {
+			const logMatch = LOG_LINE.exec(line);
+			if (logMatch) {
+				capturing = false;
+				const level = logMatch[1];
+				if (level !== 'ERROR' && level !== 'FATAL') continue;
+
+				const normalized = line.replace(LOG_PREFIX, '');
+				if (SKIP_SUMMARY.test(normalized)) continue;
+
+				result.push(normalized);
+				capturing = true;
+				continue;
+			}
+
+			if (!capturing || STACK_FRAME.test(line)) continue;
+
+			result.push(line);
+		}
+
+		return result;
 	}
 	/** Dispose the transport and child process. */
 	async dispose(): Promise<void> {
