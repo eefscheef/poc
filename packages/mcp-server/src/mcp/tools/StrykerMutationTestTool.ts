@@ -23,7 +23,7 @@ import { SourceSnippetReader } from '../util/SourceSnippetReader.ts';
 
 type AgentMutationMetrics = Pick<
 	Metrics,
-	'mutationScore' | 'mutationScoreBasedOnCoveredCode' | 'totalMutants'
+	'mutationScore' | 'mutationScoreBasedOnCoveredCode' | 'totalValid'
 >;
 
 type UndetectedStatus = 'Survived' | 'NoCoverage';
@@ -286,7 +286,7 @@ export class StrykerMutationTestTool {
 		return {
 			mutationScore: Number(m.mutationScore.toFixed(2)),
 			mutationScoreBasedOnCoveredCode: Number(m.mutationScoreBasedOnCoveredCode.toFixed(2)),
-			totalMutants: m.totalMutants,
+			totalValid: m.totalValid,
 		};
 	}
 
@@ -294,7 +294,7 @@ export class StrykerMutationTestTool {
 		return [
 			`Mutation score: ${m.mutationScore}%`,
 			`Score (covered code): ${m.mutationScoreBasedOnCoveredCode}%`,
-			`Total mutants: ${m.totalMutants}`,
+			`Total mutants tested: ${m.totalValid}`,
 		].join('\n');
 	}
 
