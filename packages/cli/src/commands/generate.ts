@@ -71,6 +71,15 @@ export async function generateTests(options: GenerateOptions) {
 		await client.createAllSessions();
 		spinner?.succeed('MCP servers connected');
 
+		spinner?.start('Priming code graph (CGC)...');
+		try {
+			await primeCodeGraph(client, projectDirectory, logger);
+			spinner?.succeed('Code graph primed');
+		} catch (err) {
+			spinner?.warn('Code graph priming skipped');
+			logger.debug('CGC priming error', serializeError(err));
+		}
+
 		spinner?.start('Loading prompt...');
 		const prompt = await loadStrykerPrompt(client, projectDirectory, maxIterations, outputDir);
 		spinner?.succeed('Prompt loaded');
@@ -84,15 +93,31 @@ export async function generateTests(options: GenerateOptions) {
 			return;
 		}
 
-		// Disallow tools that are unlikely to be useful to tokens
+		// Disallow tools that waste tokens or are irrelevant for test generation.
+		// Filesystem exploration tools are superseded by CGC graph queries.
 		const disallowedTools = [
+			// Filesystem - block exploration tools; keep read_file + write_file
 			'execute_command',
+			'list_directory',
 			'list_directory_with_sizes',
+			'search_files',
 			'get_file_info',
 			'move_file',
 			'read_media_file',
 			'directory_tree',
-			// 'strykerPrompt', // Prompt doesn't get filtered by disallowedTools. TODO: explore if beneficial to move this to tool.
+			// CGC - block mutative/admin/viz tools; keep find_code + analyze_code_relationships
+			'watch_directory',
+			'unwatch_directory',
+			'list_watched_paths',
+			'delete_repository',
+			'execute_cypher_query',
+			'visualize_graph_query',
+			'load_bundle',
+			'search_registry_bundles',
+			'add_code_to_graph',
+			'check_job_status',
+			'add_package_to_graph',
+			'list_jobs',
 		];
 
 		agent = new MCPAgent({
@@ -106,7 +131,7 @@ export async function generateTests(options: GenerateOptions) {
 		await agent.initialize();
 		logger.info('Agent started');
 
-		if (options.provider === 'google' && options.model.startsWith('gemini-3')) {
+		if (options.provider === 'google' && options.model.startsWith('gemini-4')) {
 			// No streaming: avoids Gemini 3 preview tool+stream issues
 			const result = await agent.run({ prompt, maxSteps: 1000 });
 			process.stdout.write(result);
@@ -133,6 +158,147 @@ export async function generateTests(options: GenerateOptions) {
 		if (agent) await agent.close();
 		if (client) await client.closeAllSessions();
 	}
+}
+
+async function primeCodeGraph(
+	client: NonNullable<ReturnType<typeof createMCPClient>>,
+	projectDirectory: string,
+	logger: ReturnType<typeof createCliContext>['logger'],
+) {
+	const session = client.getSession('cgc');
+	if (!session) {
+		logger.debug('CGC session not available; skipping graph priming');
+		return;
+	}
+
+	const tools = await session.listTools();
+	const toolNames = new Set(tools.map((t) => t.name));
+	if (!toolNames.has('add_code_to_graph')) {
+		logger.debug('CGC add_code_to_graph tool not available; skipping graph priming');
+		return;
+	}
+
+	const addResult = await session.callTool('add_code_to_graph', {
+		path: projectDirectory,
+		is_dependency: false,
+	});
+
+	const jobId = extractJobId(addResult);
+	if (!jobId) {
+		logger.debug('CGC indexing started without a job id; continuing without polling');
+		return;
+	}
+
+	if (!toolNames.has('check_job_status')) {
+		logger.debug('CGC check_job_status tool not available; continuing without polling');
+		return;
+	}
+
+	const pollDelayMs = 1500;
+	const maxPolls = 60; // ~90 seconds
+	for (let i = 0; i < maxPolls; i++) {
+		const statusResult = await session.callTool('check_job_status', { job_id: jobId });
+		const status = extractJobStatus(statusResult);
+
+		if (status === 'completed') {
+			logger.debug('CGC indexing completed', { jobId, polls: i + 1 });
+			return;
+		}
+
+		if (status === 'failed') {
+			throw new Error(`CGC indexing failed for job ${jobId}`);
+		}
+
+		await sleep(pollDelayMs);
+	}
+
+	logger.debug('CGC indexing still running after timeout; continuing anyway', { jobId });
+}
+
+function extractJobId(result: unknown): string | undefined {
+	const obj = extractStructuredPayload(result);
+	const fromStructured =
+		obj?.job_id ?? obj?.jobId ?? (typeof obj?.id === 'string' ? obj.id : undefined);
+	if (typeof fromStructured === 'string' && fromStructured.length > 0) {
+		return fromStructured;
+	}
+
+	const text = extractTextPayload(result);
+	if (!text) return undefined;
+
+	const fromRegex =
+		text.match(/"job_id"\s*:\s*"([^"]+)"/i)?.[1] ??
+		text.match(/job[_\s-]?id\s*[:=]\s*([a-z0-9._-]+)/i)?.[1];
+
+	return fromRegex;
+}
+
+function extractJobStatus(result: unknown): 'completed' | 'failed' | 'running' | undefined {
+	const obj = extractStructuredPayload(result);
+	const value =
+		typeof obj?.status === 'string'
+			? obj.status
+			: typeof obj?.state === 'string'
+				? obj.state
+				: undefined;
+
+	const normalized = value?.toLowerCase();
+	if (!normalized) return undefined;
+	if (
+		['completed', 'complete', 'done', 'finished', 'success', 'succeeded'].includes(normalized)
+	) {
+		return 'completed';
+	}
+	if (['failed', 'error', 'errored'].includes(normalized)) {
+		return 'failed';
+	}
+	if (
+		['running', 'pending', 'queued', 'processing', 'in_progress', 'in-progress'].includes(
+			normalized,
+		)
+	) {
+		return 'running';
+	}
+
+	return undefined;
+}
+
+function extractStructuredPayload(result: unknown): Record<string, string> | undefined {
+	if (!result || typeof result !== 'object') return undefined;
+	const maybe = result as { structuredContent?: unknown };
+	if (maybe.structuredContent && typeof maybe.structuredContent === 'object') {
+		return maybe.structuredContent as Record<string, string>;
+	}
+
+	const text = extractTextPayload(result);
+	if (!text) return undefined;
+
+	try {
+		const parsed = JSON.parse(text) as unknown;
+		if (parsed && typeof parsed === 'object') return parsed as Record<string, string>;
+	} catch {
+		// Ignore non-JSON payloads
+	}
+
+	return undefined;
+}
+
+function extractTextPayload(result: unknown): string | undefined {
+	if (!result || typeof result !== 'object') return undefined;
+	const maybe = result as { content?: unknown };
+	if (!Array.isArray(maybe.content)) return undefined;
+
+	for (const item of maybe.content) {
+		if (!item || typeof item !== 'object') continue;
+		const text = (item as { text?: unknown }).text;
+		if (typeof text === 'string' && text.length > 0) return text;
+	}
+
+	return undefined;
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

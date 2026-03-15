@@ -9,6 +9,7 @@ interface MCPServerConfig {
 export interface MCPConfig {
 	stryker: MCPServerConfig;
 	filesystem: MCPServerConfig;
+	cgc: MCPServerConfig;
 }
 
 export function createMCPConfig(projectDirectory: string, monorepoRoot: string): MCPConfig {
@@ -26,6 +27,12 @@ export function createMCPConfig(projectDirectory: string, monorepoRoot: string):
 		filesystem: {
 			command: 'npx',
 			args: ['-y', '@modelcontextprotocol/server-filesystem', projectDirectory],
+		},
+		cgc: {
+			// cgc is installed under Python 3.13 (kuzu has no wheel for 3.14 yet).
+			// Use the py launcher to target the correct interpreter explicitly.
+			command: 'py',
+			args: ['-3.13', '-m', 'codegraphcontext', 'mcp', 'start'],
 		},
 	};
 }
