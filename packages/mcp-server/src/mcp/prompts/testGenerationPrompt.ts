@@ -71,17 +71,19 @@ export function registerTestGenerationPrompt(mcpServer: McpServer, projectDir: s
 				: 'OUTPUT_DIR=stryker-tests/';
 
 			const outputDirRules = outputDir
-				? `\n- Write ALL new test files into ${outputDir}. Do NOT place tests elsewhere.`
+				? `\n\t- Write ALL new test files into ${outputDir}. Do NOT place tests elsewhere.`
 				: '';
 
 			// Dynamically resolve the correct import path so the agent doesn't have to guess
 			let importHint = '';
+			let hasResolvedImportHint = false;
 			try {
 				const pkgPath = path.join(projectDir, 'package.json');
 				const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'));
 				const mainEntry =
 					pkg.main ?? pkg.exports?.['.']?.default ?? pkg.exports?.['.'] ?? null;
 				if (mainEntry) {
+					hasResolvedImportHint = true;
 					const entryDir = path.dirname(path.resolve(projectDir, mainEntry));
 
 					// List the directory tree (2 levels deep) around the entry point
@@ -110,55 +112,72 @@ export function registerTestGenerationPrompt(mcpServer: McpServer, projectDir: s
 				// package.json unreadable — the agent will have to discover paths itself
 			}
 
+			const importFallbackHint = hasResolvedImportHint
+				? ''
+				: `
+	  IMPORT PATHS (resolution fallback): pre-computed import paths were not available.
+	  Before writing any test file:
+	  1. Explore the file structure to find the correct import target (source/dist entry).
+	  2. List the directory structure to understand where source/dist files live relative to OUTPUT_DIR.
+	  3. Compute the correct relative path from the test file location to the module entry point or individual source files.
+	  4. If existing test files exist in the project, read one to see what import pattern the project uses. Prefer the same pattern.
+	  5. Verify: after writing the first test file, if strykerMutationTest reports "Cannot find module" errors, read the error, list the directory, and fix the path immediately before continuing.`;
+
 			const messages: PromptMessage[] = [
 				{
 					role: 'user',
 					content: {
 						type: 'text',
-						text: `You generate/repair JS/TS unit tests to improve Stryker mutation score.
+						text: `Goal:
+	- Generate/repair JS/TS unit tests to improve Stryker mutation score.
+	- Context: DIR=${projectDirectory}; MAX_ITERS=${maxIterations}; ${outputDirLine}
 
-DIR=${projectDirectory}; MAX_ITERS=${maxIterations}; ${outputDirLine}
+	Hard constraints:
+	- No third-party assertion/mocking libs - Node built-ins only.
+	- Use Mocha with Node built-ins only (node:*, assert).
+	- Every returned mutant MUST be investigated and explicitly addressed.
+	- For each mutant, either:
+		(a) add/repair tests to kill it, or
+		(b) justify why it cannot reasonably be killed (e.g. equivalent mutant).
+	- Ignore any pre-existing test files in the project. Write all tests from scratch.${outputDirRules}
+	
+	- IMPORT PATHS: Do NOT guess import paths.${importHint}${importFallbackHint}
+	- This is a FULLY AUTOMATED run. There is NO human available to respond. NEVER ask the user or anyone else to install packages, change configuration, or take any action. If you cannot proceed, write the final report immediately and stop.
 
-Tools: strykerStart, strykerMutationTest.
+	Tools:
+	- strykerMutationTest
+	- Filesystem MCP tools available in this run:
+	  - read_text_file (preferred) / read_file
+	  - read_multiple_files
+	  - list_directory
+	  - search_files
+	  - list_allowed_directories
+	  - write_file
+	  - edit_file
+	  - create_directory
 
-Rules:
-- Use ONLY Mocha & Node.js built-ins (assert, node:assert) for tests.
-- Do NOT require/import chai, sinon, proxyquire, jest, vitest, or any other package. If you are unsure whether a package is installed, do not use it.
-- NEVER use mocking libraries. Do the best you can with what you have: Mocha and Node.js built-ins. Prefer making real requests if necessary.
-- All mutants returned by strykerMutationTest are undetected (Stryker: Survived + NoCoverage).
-- Every returned mutant MUST be investigated and explicitly addressed.
-- For each mutant, either:
-  (a) add/repair tests to kill it, or
-  (b) justify why it cannot reasonably be killed (e.g. equivalent mutant).
-- Do NOT ignore any returned mutant.
-- Ignore any pre-existing test files in the project. Write all tests from scratch.${outputDirRules}
-- Timeouts count as detected; runtime/compile errors are not scored.
-- Stop early if mutation score gain <5% vs previous run.
-- IMPORT PATHS: Do NOT guess import paths.${importHint}
-  If the pre-computed path is provided above, use it exactly. Otherwise, before writing any test file:
-  1. Read the project's package.json to find the "main" or "exports" entry point.
-  2. List the directory structure to understand where source/dist files live relative to OUTPUT_DIR.
-  3. Compute the correct relative path from the test file location to the module entry point or individual source files.
-  4. If existing test files exist in the project, read one to see what import pattern the project uses. Prefer the same pattern.
-  5. Verify: after writing the first test file, if strykerMutationTest reports "Cannot find module" errors, read the error, list the directory, and fix the path immediately before continuing.
-- This is a FULLY AUTOMATED run. There is NO human available to respond. NEVER ask the user or anyone else to install packages, change configuration, or take any action. If you cannot proceed, write the final report immediately and stop.
+	Stryker info:
+	- All mutants returned by strykerMutationTest are undetected (Stryker: Survived + NoCoverage).
+			
 
-Workflow:
-1) Explore DIR: read package.json, list the source directory tree, and identify the correct module entry point(s). Determine the correct relative import path from OUTPUT_DIR to the source/dist files. Then write an initial test suite covering observable behavior in OUTPUT_DIR using the discovered import paths.
-2) Call strykerStart to start the mutation server.
-3) Baseline: R = strykerMutationTest().
-4) Loop ≤ MAX_ITERS:
-   - For each mutant in R, design focused tests targeting the mutation (edge cases, boundary conditions, mutation-specific assertions).
-   - Apply test changes.
-   - R = strykerMutationTest(remaining-undetected-mutants if supported; else full run).
-   - Stop if no mutants are returned or gain <5%.
+	Workflow:
+	1. Explore DIR: check package.json for main/exports; if none is usable, inspect the file structure to identify the correct module entry point(s). Determine the correct relative import path from OUTPUT_DIR to the source/dist files. Then write an initial test suite covering observable behavior in OUTPUT_DIR using the discovered import paths.
+	2. Baseline: R = strykerMutationTest().
+	3. Loop while iteration <= MAX_ITERS:
+		- For each mutant in R, design focused tests targeting the mutation (edge cases, boundary conditions, mutation-specific assertions).
+		- Apply test changes.
+		- R = strykerMutationTest(survivors).
+		- Stop early if:
+			(a) no new mutants are killed in an iteration, 
+			(b) mutation score gain is below threshold (default 5%),
+			(c) undetected-mutant count drops by less than 5%.
 
-Final report:
-- Final mutation score.
-- Number of iterations.
-- Summary of key test changes.
-- For every remaining mutant: explanation why it remains undetected.
-`,
+	Final report:
+	- Final mutation score.
+	- Number of iterations.
+	- Summary of key test changes.
+	- For every remaining mutant: explanation why it remains undetected.
+	`,
 					},
 				},
 			];
