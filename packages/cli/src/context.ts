@@ -20,7 +20,7 @@ export function createCliContext(options: { json?: boolean; verbose?: boolean })
 
 	return {
 		logger: createLogger({ json, verbose }),
-		spinner: json ? null : ora(),
+		spinner: json ? null : ora({ stream: process.stderr }),
 		verbose,
 		json,
 	};
