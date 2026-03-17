@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
-		"start": "node --enable-source-maps build/index.js",
+		"start": "cross-env DOTENV_CONFIG_PATH=../../.env node -r dotenv/config --enable-source-maps build/index.js",
 		"dev": "tsx watch src/index.ts",
 		"test": "tsx --test test/**/*.test.ts",
 		"test:live": "cross-env RUN_LIVE_TESTS=true tsx --test test/**/*.test.ts"
