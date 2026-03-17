@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { config } from 'dotenv';
 import chalk from 'chalk';
 
 import { generateTests } from './commands/generate.ts';
-
-config();
 
 const program = new Command();
 
